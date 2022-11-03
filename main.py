@@ -4,13 +4,22 @@ import openpyxl as openpyxl
 from ortools.linear_solver import pywraplp
 from IOfunctionsExcel import *
 
-def parse_list(lst):
-    aux = []
-    for item in lst:
-        aux.append(int(item))
+def merge_dic_intersection(dic1, dic2):
+    """
+    Intersecta dos diccionarios y los une en una lista.
+
+    :param dic1: diccionario cuyos valores seran los primeros de las listas
+    :param dic2: diccionario cuyos valores seran los segundos de las listas
+    :return:
+    """
+    key1 = list(dic1.keys())
+    key2 = list(dic2.keys())
+    c_keys = list(set(key1) & set(key2))
+
+    aux = {}
+    for key in c_keys:
+        aux[key] = [dic1[key], dic2[key]]
     return aux
-
-
 def main():
     """
     x:
@@ -33,8 +42,8 @@ def main():
     excel_doc=openpyxl.load_workbook(name, data_only=True)
     sheet=excel_doc['Hoja1']
 
-    s = parse_list(Read_Excel_to_List(sheet, 'b2', 'b6'))
-    p = parse_list(Read_Excel_to_List(sheet, 'c2', 'c6'))
+    s = Read_Excel_to_List(sheet, 'b2', 'b6')
+    p = Read_Excel_to_List(sheet, 'c2', 'c6')
     ni = Read_Excel_to_List(sheet, 'd2', 'd6')
 
     g = list(Read_Excel_to_NesteDic(sheet, 'a10', 'i11').values())[0]
@@ -78,34 +87,48 @@ def main():
     solver.Minimize(solver.Sum(s[i]*p[i]*(ni[i]+x[i]) for i in range(len(s))))
 
     status=solver.Solve()
+
     if status==pywraplp.Solver.OPTIMAL:
         print('El problema tiene solucion.')
-
-        # sol = {}
-        # crel = {}
-        # for i in fabricas:
-        #     sol[i] = {j: 0.0 for j in almacenes}
-        #     crel[i] = {j: 0.0 for j in almacenes}
-        # for i in fabricas:
-        #     for j in almacenes:
-        #         sol[i][j]=x[i][j].solution_value()
-        #         crel[i][j]=x[i][j].reduced_cost()
-        #
-        # Write_NesteDic_to_Excel(excel_doc, name, sheet, sol,'f10', 'k16')
-        # Write_NesteDic_to_Excel(excel_doc, name, sheet, crel,'f18', 'k24')
 
         t = []
         for sol in x:
             t.append(sol.solution_value())
+        n_ni = [ni[i] + t[i] for i in range(len(ni))]
         ci = []
         for cii in v:
             ci.append(cii.solution_value())
+        ing = sum([s[i]*p[i]*(ni[i]+t[i]) for i in range(len(s))])
+        gas = sum(ci)
+        print(f"El incremento de las tasas impositivas son: {t}")
+        print(f"Dejando las tasas impositivas como: {n_ni}")
+        print(f"Los nuevos costes de inversión son: {ci}")
+        print(f"Los ingresos son: {round(ing, 2)}")
+        print(f"Los gastos son: {gas}")
+        print(f"Balance del año: {round(ing-gas, 2)}")
 
-        print(f"El incremento de las tasas impositivas son: {t}\nLos nuevos costes de inversión son: {ci}")
+        # dic = {}
+        # dic['NUEVO_NIVEL_IMPOSITIVO'] = [ni[i]+t[i] for i in range(len(ni))]
+        # dic['NUEVO_ING_ANU'] = [s[i]*p[i]*dic['NUEVO_NIVEL_IMPOSITIVO'][i] for i in range(len(s))].append(ing)
+        #
+        # # Write_NesteDic_to_Excel(excel_doc, name, sheet, dic, 'f1', 'g7')
+        #
+        # dic2 = {}
+        # # conseguimos las claves y quitamos el total
+        # dic2_keys = list(g.keys())[:-1]
+        # for i in range(len(dic2_keys)):
+        #     dic2[dic2_keys[i]] = ci[i]
+        # dic2['TOTAL'] = sum(ci)
+        # merged = merge_dic_intersection(g, dic2)
+        # # Write_NesteDic_to_Excel(excel_doc, name, sheet, merged, 'b10', 'i12')
+
+
+
 
     else:
         print('No hay solución óptima. Error.')
 
+    return
 
 if __name__=='__main__':
     main()
