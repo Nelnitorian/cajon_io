@@ -6,12 +6,12 @@ from IOfunctionsExcel import *
 
 def main():
     """
-    x:
+    x: incremento de tasa impositiva
         x0 = xa
         x1 = xb
         ...
 
-    v:
+    v: nuevos gastos
         v0 =  infraestructuras
         v1 = educacion
         v2 = sanidad
