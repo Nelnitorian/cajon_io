@@ -4,22 +4,6 @@ import openpyxl as openpyxl
 from ortools.linear_solver import pywraplp
 from IOfunctionsExcel import *
 
-def merge_dic_intersection(dic1, dic2):
-    """
-    Intersecta dos diccionarios y los une en una lista.
-
-    :param dic1: diccionario cuyos valores seran los primeros de las listas
-    :param dic2: diccionario cuyos valores seran los segundos de las listas
-    :return:
-    """
-    key1 = list(dic1.keys())
-    key2 = list(dic2.keys())
-    c_keys = list(set(key1) & set(key2))
-
-    aux = {}
-    for key in c_keys:
-        aux[key] = [dic1[key], dic2[key]]
-    return aux
 def main():
     """
     x:
@@ -100,29 +84,12 @@ def main():
             ci.append(cii.solution_value())
         ing = sum([s[i]*p[i]*(ni[i]+t[i]) for i in range(len(s))])
         gas = sum(ci)
-        print(f"El incremento de las tasas impositivas son: {t}")
+        print(f"El incremento de las tasas impositivas es: {t}")
         print(f"Dejando las tasas impositivas como: {n_ni}")
         print(f"Los nuevos costes de inversión son: {ci}")
         print(f"Los ingresos son: {round(ing, 2)}")
         print(f"Los gastos son: {gas}")
         print(f"Balance del año: {round(ing-gas, 2)}")
-
-        # dic = {}
-        # dic['NUEVO_NIVEL_IMPOSITIVO'] = [ni[i]+t[i] for i in range(len(ni))]
-        # dic['NUEVO_ING_ANU'] = [s[i]*p[i]*dic['NUEVO_NIVEL_IMPOSITIVO'][i] for i in range(len(s))].append(ing)
-        #
-        # # Write_NesteDic_to_Excel(excel_doc, name, sheet, dic, 'f1', 'g7')
-        #
-        # dic2 = {}
-        # # conseguimos las claves y quitamos el total
-        # dic2_keys = list(g.keys())[:-1]
-        # for i in range(len(dic2_keys)):
-        #     dic2[dic2_keys[i]] = ci[i]
-        # dic2['TOTAL'] = sum(ci)
-        # merged = merge_dic_intersection(g, dic2)
-        # # Write_NesteDic_to_Excel(excel_doc, name, sheet, merged, 'b10', 'i12')
-
-
 
 
     else:
