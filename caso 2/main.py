@@ -75,9 +75,32 @@ def main():
         m = -1
         p[j] = solver.Sum(solver.Sum(x1[i][j] for i in proveedores if m in list(table_contents['T1'][table_contents['T1']["Proveedor"] == i]["Materia prima"]))*e[j][m] for m in materias)
 
-    # Restricciones
+    # p = {}
+    # for j in fabricantes:
+    #     lst = []
+    #     for m in materias:
+    #         lst.append(solver.Sum(x1[i][j] for i in proveedores if m in list(table_contents['T1'][table_contents['T1']["Proveedor"] == i]["Materia prima"])) * e[j][m])
+    #     p[j] = solver.Sum(lst)
+    # materia1 = [x1[i][j] for j in fabricantes for i in [1,2,3]]
+    # materia2 = [x1[i][j] for j in fabricantes for i in [4,5,6]]
+    # materia3 = [x1[i][j] for j in fabricantes for i in [7,8]]
+    # indexes = [[1,2,3],[4,5,6],[7,8]]
+    # mats = []
+    # for j in fabricantes:
+    #     for m in materias:
+    #         var_lst = []
+    #         for j in fabricantes:
+    #             tmp = []
+    #             for lst in indexes:
+    #                 for i in lst:
+    #                     tmp.append(x1[i][j])
+    #             var_lst.append(tmp)
+    #         solver.Add(solver.Sum(var_lst)/e[j][m])
+    #     solver.Add(solver.Sum([x1[i][j] for lst in indexes for j in fabricantes])/e[j][m])
+    # solver.Add(solver.Sum(x1[i][j] for j in fabricantes for i in [4,5,6]))
+    # solver.Add(solver.Sum(x1[i][j] for j in fabricantes for i in [7,8]))
 
-    # R1
+        # R1
     for i in proveedores:
         solver.Add(solver.Sum(x1[i][j] for j in fabricantes) <= a1[i], f"R1")
 
@@ -97,30 +120,81 @@ def main():
     for i in fabricantes:
         solver.Add(p[i] <= a2[i], f"R5")
 
-    FO = solver.Sum(x1[i][j]*(kf1[i]+kd1[i]) for j in fabricantes for i in proveedores) + solver.Sum(x2[i][j]*(kf2[i]+kd2[i][j]) for j in clientes for i in fabricantes)
+    FO = solver.Sum(x1[i][j]*(kf1[i]+kd1[i]*d1[i][j]) for j in fabricantes for i in proveedores) + solver.Sum(x2[i][j]*(kf2[i]+kd2[i][j]*d2[i][j]) for j in clientes for i in fabricantes)
     solver.Minimize(FO)
 
-    status=solver.Solve()
+    status = solver.Solve()
 
-    if status==pywraplp.Solver.OPTIMAL:
+    if status == pywraplp.Solver.OPTIMAL:
         print('El problema tiene solucion.')
 
-        t = []
-        # for sol in x:
-        #     t.append(sol.solution_value())
-        # n_ni = [ni[i] + t[i] for i in range(len(ni))]
-        # ci = []
-        # for cii in v:
-        #     ci.append(cii.solution_value())
-        # ing = sum([s[i]*p[i]*(ni[i]+t[i]) for i in range(len(s))])
-        # gas = sum(ci)
-        # print(f"El incremento de las tasas impositivas es: {t}")
-        # print(f"Dejando las tasas impositivas como: {n_ni}")
-        # print(f"Los nuevos costes de inversión son: {ci}")
-        # print(f"Los ingresos son: {round(ing, 2)}")
-        # print(f"Los gastos son: {gas}")
-        # print(f"Balance del año: {round(ing-gas, 2)}")
 
+        # Cantidad de producto enviada entre proveedores y fabricantes
+        sol_x1 = create_empty_nested_dics(proveedores)
+        for i in proveedores:
+            for j in fabricantes:
+                sol_x1[i][j] = x1[i][j].solution_value()
+
+        sol_x2 = create_empty_nested_dics(fabricantes)
+        for i in fabricantes:
+            for j in clientes:
+                sol_x2[i][j] = x2[i][j].solution_value()
+
+        var_costs_x1 = create_empty_nested_dics(proveedores)
+        for i in proveedores:
+            for j in fabricantes:
+                var_costs_x1[i][j] = x1[i][j].reduced_cost()
+
+        var_costs_x2 = create_empty_nested_dics(fabricantes)
+        for i in fabricantes:
+            for j in clientes:
+                var_costs_x2[i][j] = x2[i][j].reduced_cost()
+
+        FO_value = sum(sol_x1[i][j]*(kf1[i]+kd1[i]*d1[i][j]) for j in fabricantes for i in proveedores) + sum(sol_x2[i][j]*(kf2[i]+kd2[i][j]*d2[i][j]) for j in clientes for i in fabricantes)
+
+        transport_money_costs_x1 = create_empty_nested_dics(proveedores)
+        for i in proveedores:
+            for j in fabricantes:
+                transport_money_costs_x1[i][j] = sol_x1[i][j]*kd1[i]*d1[i][j]
+
+        transport_money_costs_x2 = create_empty_nested_dics(fabricantes)
+        for i in fabricantes:
+            for j in clientes:
+                transport_money_costs_x2[i][j] = sol_x2[i][j]*kd2[i][j]*d2[i][j]
+
+        fabrication_money_costs_x1 = create_empty_nested_dics(proveedores)
+        for i in proveedores:
+            for j in fabricantes:
+                fabrication_money_costs_x1[i][j] = sol_x1[i][j]*kf1[i]
+
+        fabrication_money_costs_x2 = create_empty_nested_dics(fabricantes)
+        for i in fabricantes:
+            for j in clientes:
+                fabrication_money_costs_x2[i][j] = sol_x2[i][j]*kf2[i]
+
+        total_money_cost_x1 = create_empty_nested_dics(proveedores)
+        for i in proveedores:
+            for j in fabricantes:
+                total_money_cost_x1[i][j] = fabrication_money_costs_x1[i][j]+transport_money_costs_x1[i][j]
+
+        total_money_cost_x2 = create_empty_nested_dics(fabricantes)
+        for i in fabricantes:
+            for j in clientes:
+                total_money_cost_x2[i][j] = fabrication_money_costs_x2[i][j]+transport_money_costs_x2[i][j]
+
+        write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, sol_x1, ['E28'], 'S1')
+        write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, sol_x2, ['I28'], 'S2')
+        # write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, var_costs_x1, ['N28'],'S3')
+        # write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, var_costs_x2, ['E38'], 'S4')
+        write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, transport_money_costs_x1, ['I38'], 'S5')
+        write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, transport_money_costs_x2, ['N38'], 'S6')
+        write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, fabrication_money_costs_x1,['E48'] , 'S7')
+        write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, fabrication_money_costs_x2, ['I48'], 'S8')
+        write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, total_money_cost_x1, ['N48'], 'S9')
+        write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, total_money_cost_x2, ['E58'], 'S10')
+
+        # funcion objetivo
+        write_list_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, [FO_value,], ['A28'], 'Valor de la Función Objetivo')
 
     else:
         print('No hay solución óptima. Error.')
