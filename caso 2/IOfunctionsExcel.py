@@ -258,7 +258,7 @@ def fill_list_values(lst):
             lst[i+1] = lst[i]
     return lst
 
-def parse_dic_values(dic):
+def parse_dic_values(dic, char):
     for key in dic.keys():
         dic[key] = parse_single_value(dic[key])
     return dic
@@ -276,3 +276,14 @@ def create_dictionary_vars(solver, primary_key, secondary_key):
 
 def create_dic(keys, values):
     return dict(zip(list(keys), list(values)))
+
+def extract_list_value(dic):
+    for key in dic.keys():
+        dic[key] = dic[key][0]
+    return dic
+
+# def create_dic_of_dic(key1, key2, val):
+#     dic= dict(zip(key1, [{}]*len(key1)))
+#     for k1 in dic.keys():
+#         for k2 in key2:
+#             dic[k1][k2] = val.

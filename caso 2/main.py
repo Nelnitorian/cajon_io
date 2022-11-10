@@ -24,7 +24,7 @@ def main():
     sheet=excel_doc[SHEET_NAME]
 
     # Se lee el diccionario donde está la información de las tablas
-    table_information = parse_dic_values(Read_Dic_Single_Value_from_Excel(sheet, ('A2', 'B8')))
+    table_information = parse_dic_values(Read_Dic_Single_Value_from_Excel(sheet, ('A2', 'B8')), ',')
     table_contents = {}
     for key, value in table_information.items():
         table_contents[key] = read_from_excel_to_dataframe(EXCEL_FILE_NAME, SHEET_NAME, value)
@@ -34,52 +34,71 @@ def main():
     x1 = create_dictionary_vars(solver, list(table_contents['T1']['Proveedor']), list(table_contents['T4']['Fábrica']))
     x2 = create_dictionary_vars(solver, list(table_contents['T4']['Fábrica']), list(table_contents['T5'].keys()))
 
+    proveedores = list(x1.keys())
+    fabricantes = list(x2.keys())
+    clientes = list(table_contents['T5'].keys())
+    materias = list(table_contents['T1']["Materia prima"].unique())
+
     # Definición de constantes. Se pasan a diccionarios para mejorar la trazabilidad.
 
-    a1 = create_dic(x1.keys(), table_contents['T1']["Límite de suministro (unidades/año)"])
-    a2 = create_dic(x2.keys(), table_contents['T4']["Unidades de producto/año"])
+    a1 = create_dic(proveedores, table_contents['T1']["Límite de suministro (unidades/año)"])
+    a2 = create_dic(fabricantes, table_contents['T4']["Unidades de producto/año"])
 
-    kf1 = create_dic(x1.keys(), table_contents['T1']["Coste unitario"])
-    kf2 = create_dic(x2.keys(), table_contents['T4']["Coste de fabricación"])
+    kf1 = create_dic(proveedores, table_contents['T1']["Coste unitario"])
+    kf2 = create_dic(fabricantes, table_contents['T4']["Coste de fabricación"])
+
+    kd1 = create_dic(proveedores, table_contents['T3']['Coste unitario de transporte [€/(unidad*km)]'])
+    kd2 = {}
+    for i in range(len(fabricantes)):
+        kd2[fabricantes[i]] = create_dic(clientes, list(table_contents['T7'].iloc[0, 1:]))
+
+    d1 = {}
+    for i in range(len(proveedores)):
+        d1[proveedores[i]] = create_dic(fabricantes, list(table_contents['T3'].iloc[i, 2:4]))
+    d2 = {}
+    for i in range(len(fabricantes)):
+        d2[fabricantes[i]] = create_dic(clientes, list(table_contents['T6'].iloc[i, 1:]))
 
 
+    e = {}
+    for i in range(len(fabricantes)):
+        e[fabricantes[i]] = create_dic(materias, list(table_contents['T2'].iloc[:, i+1]))
 
-    kd1 = create_dic(x1.keys(), table_contents['T4']["Coste de fabricación"])
-    kd2 = create_dic(x2.keys(), table_contents['T4']["Coste de fabricación"])
+    b1 = {}
+    for j in fabricantes:
+        b1[j] = solver.Sum(x1[i][j] for i in proveedores)
+    b2 = create_dic(clientes, list(table_contents['T5'].iloc[0, :]))
 
-    d1 = create_dic(x1.keys(), table_contents['T4']["Coste de fabricación"])
-    d2 = create_dic(x2.keys(), table_contents['T4']["Coste de fabricación"])
+    p = {}
+    for j in fabricantes:
+        # Dado que python hace evaluación perezosa de las lists comprehensions es necesaria la siguiente sentencia de cara a la primera iteración del bucle:
+        m = -1
+        p[j] = solver.Sum(solver.Sum(x1[i][j] for i in proveedores if m in list(table_contents['T1'][table_contents['T1']["Proveedor"] == i]["Materia prima"]))*e[j][m] for m in materias)
 
     # Restricciones
 
-
     # R1
-    solver.Add(solver.Sum(v[i] for i in range(len(v))) >= 0.75*g['TOTAL'], f"R1")
-    # R2
-    solver.Add((solver.Sum(s[i]*p[i]*(ni[i]+x[i]) for i in range(len(s))) -
-               solver.Sum(v[i] for i in range(len(v)))) == 27000, f"R2")
-    # R3
-    solver.Add(v[4] >= 2500, f"R3")
-    # R4
-    solver.Add(v[5] >= 900, f"R4")
-    # R5
-    solver.Add(v[6] >= 6000, f"R5")
-    # R6
-    solver.Add(x[0]/s[0] == x[1]/s[1], f"R6")
-    # R7
-    solver.Add(x[1]/s[1] == x[2]/s[2], f"R7")
-    # R8
-    solver.Add(x[2]/s[2] == x[3]/s[3], f"R8")
-    # R9
-    solver.Add(x[3]/s[3] == x[4]/s[4], f"R9")
-    # R10
-    solver.Add(v[0]/g['INFRA'] == v[3]/g['ADMIN'], f"R10")
-    # R11
-    solver.Add(v[1] == g['EDUCACION'], f"R11")
-    # R12
-    solver.Add(v[2] == g['SANIDAD'], f"R12")
+    for i in proveedores:
+        solver.Add(solver.Sum(x1[i][j] for j in fabricantes) <= a1[i], f"R1")
 
-    solver.Minimize(solver.Sum(s[i]*p[i]*(ni[i]+x[i]) for i in range(len(s))))
+    # R2
+    for j in fabricantes:
+        solver.Add(solver.Sum(x1[i][j] for i in proveedores) == b1[j], f"R2")
+
+    # R3
+    for i in fabricantes:
+        solver.Add(solver.Sum(x2[i][j] for j in clientes) <= p[i], f"R3")
+
+    # R4
+    for j in clientes:
+        solver.Add(solver.Sum(x2[i][j] for i in fabricantes) == b2[j], f"R4")
+
+    # R5
+    for i in fabricantes:
+        solver.Add(p[i] <= a2[i], f"R5")
+
+    FO = solver.Sum(x1[i][j]*(kf1[i]+kd1[i]) for j in fabricantes for i in proveedores) + solver.Sum(x2[i][j]*(kf2[i]+kd2[i][j]) for j in clientes for i in fabricantes)
+    solver.Minimize(FO)
 
     status=solver.Solve()
 
@@ -87,20 +106,20 @@ def main():
         print('El problema tiene solucion.')
 
         t = []
-        for sol in x:
-            t.append(sol.solution_value())
-        n_ni = [ni[i] + t[i] for i in range(len(ni))]
-        ci = []
-        for cii in v:
-            ci.append(cii.solution_value())
-        ing = sum([s[i]*p[i]*(ni[i]+t[i]) for i in range(len(s))])
-        gas = sum(ci)
-        print(f"El incremento de las tasas impositivas es: {t}")
-        print(f"Dejando las tasas impositivas como: {n_ni}")
-        print(f"Los nuevos costes de inversión son: {ci}")
-        print(f"Los ingresos son: {round(ing, 2)}")
-        print(f"Los gastos son: {gas}")
-        print(f"Balance del año: {round(ing-gas, 2)}")
+        # for sol in x:
+        #     t.append(sol.solution_value())
+        # n_ni = [ni[i] + t[i] for i in range(len(ni))]
+        # ci = []
+        # for cii in v:
+        #     ci.append(cii.solution_value())
+        # ing = sum([s[i]*p[i]*(ni[i]+t[i]) for i in range(len(s))])
+        # gas = sum(ci)
+        # print(f"El incremento de las tasas impositivas es: {t}")
+        # print(f"Dejando las tasas impositivas como: {n_ni}")
+        # print(f"Los nuevos costes de inversión son: {ci}")
+        # print(f"Los ingresos son: {round(ing, 2)}")
+        # print(f"Los gastos son: {gas}")
+        # print(f"Balance del año: {round(ing-gas, 2)}")
 
 
     else:
