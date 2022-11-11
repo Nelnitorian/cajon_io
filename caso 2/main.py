@@ -69,12 +69,32 @@ def main():
         b1[j] = solver.Sum(x1[i][j] for i in proveedores)
     b2 = create_dic(clientes, list(table_contents['T5'].iloc[0, :]))
 
-    p = {}
+    # p = {}
+    # for j in fabricantes:
+    #     # Dado que python hace evaluación perezosa de las lists comprehensions es necesaria la siguiente sentencia de cara a la primera iteración del bucle:
+    #     m = -1
+    #     p[j] = solver.Sum(solver.Sum(x1[i][j] for i in proveedores if m in list(table_contents['T1'][table_contents['T1']["Proveedor"] == i]["Materia prima"]))*e[j][m] for m in materias)
+    cantidad_materias = {}
     for j in fabricantes:
-        # Dado que python hace evaluación perezosa de las lists comprehensions es necesaria la siguiente sentencia de cara a la primera iteración del bucle:
-        m = -1
-        p[j] = solver.Sum(solver.Sum(x1[i][j] for i in proveedores if m in list(table_contents['T1'][table_contents['T1']["Proveedor"] == i]["Materia prima"]))*e[j][m] for m in materias)
-
+        aux = []
+        for m in materias:
+            cantidad = 0
+            for i in proveedores:
+                if m in list(table_contents['T1'][table_contents['T1']["Proveedor"] == i]["Materia prima"]):
+                    cantidad += x1[i][j]
+            aux.append(cantidad)
+        cantidad_materias[j] = create_dic(materias, aux)
+    p = create_empty_nested_dics(fabricantes)
+    for j in fabricantes:
+        for m in materias:
+            p[j][m] = cantidad_materias[j][m]*e[j][m]
+    p_total = {}
+    for j in fabricantes:
+        total = 0
+        for m in materias:
+            total += p[j][m]
+        p_total[j] = total
+    # print("a")
     # p = {}
     # for j in fabricantes:
     #     lst = []
@@ -110,7 +130,7 @@ def main():
 
     # R3
     for i in fabricantes:
-        solver.Add(solver.Sum(x2[i][j] for j in clientes) <= p[i], f"R3")
+        solver.Add(solver.Sum(x2[i][j] for j in clientes) <= p_total[i], f"R3")
 
     # R4
     for j in clientes:
@@ -118,7 +138,7 @@ def main():
 
     # R5
     for i in fabricantes:
-        solver.Add(p[i] <= a2[i], f"R5")
+        solver.Add(p_total[i] <= a2[i], f"R5")
 
     FO = solver.Sum(x1[i][j]*(kf1[i]+kd1[i]*d1[i][j]) for j in fabricantes for i in proveedores) + solver.Sum(x2[i][j]*(kf2[i]+kd2[i][j]*d2[i][j]) for j in clientes for i in fabricantes)
     solver.Minimize(FO)
@@ -182,6 +202,11 @@ def main():
             for j in clientes:
                 total_money_cost_x2[i][j] = fabrication_money_costs_x2[i][j]+transport_money_costs_x2[i][j]
 
+        product_by_mat = create_empty_nested_dics(fabricantes)
+        for j in fabricantes:
+            for m in materias:
+                product_by_mat[j][m] = p[j][m].solution_value()
+
         write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, sol_x1, ['E28'], 'S1')
         write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, sol_x2, ['I28'], 'S2')
         # write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, var_costs_x1, ['N28'],'S3')
@@ -192,7 +217,7 @@ def main():
         write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, fabrication_money_costs_x2, ['I48'], 'S8')
         write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, total_money_cost_x1, ['N48'], 'S9')
         write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, total_money_cost_x2, ['E58'], 'S10')
-
+        write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, product_by_mat, ['I58'], 'S11')
         # funcion objetivo
         write_list_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, [FO_value,], ['A28'], 'Valor de la Función Objetivo')
 
