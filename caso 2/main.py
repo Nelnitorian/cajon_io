@@ -2,7 +2,7 @@
 
 import openpyxl as openpyxl
 from ortools.linear_solver import pywraplp
-from IOfunctionsExcel import *
+from utils import *
 import pandas as pd
 
 # Constants
@@ -87,40 +87,15 @@ def main():
     p = create_empty_nested_dics(fabricantes)
     for j in fabricantes:
         for m in materias:
-            p[j][m] = cantidad_materias[j][m]*e[j][m]
+            p[j][m] = cantidad_materias[j][m]/e[j][m]
     p_total = {}
     for j in fabricantes:
         total = 0
         for m in materias:
             total += p[j][m]
         p_total[j] = total
-    # print("a")
-    # p = {}
-    # for j in fabricantes:
-    #     lst = []
-    #     for m in materias:
-    #         lst.append(solver.Sum(x1[i][j] for i in proveedores if m in list(table_contents['T1'][table_contents['T1']["Proveedor"] == i]["Materia prima"])) * e[j][m])
-    #     p[j] = solver.Sum(lst)
-    # materia1 = [x1[i][j] for j in fabricantes for i in [1,2,3]]
-    # materia2 = [x1[i][j] for j in fabricantes for i in [4,5,6]]
-    # materia3 = [x1[i][j] for j in fabricantes for i in [7,8]]
-    # indexes = [[1,2,3],[4,5,6],[7,8]]
-    # mats = []
-    # for j in fabricantes:
-    #     for m in materias:
-    #         var_lst = []
-    #         for j in fabricantes:
-    #             tmp = []
-    #             for lst in indexes:
-    #                 for i in lst:
-    #                     tmp.append(x1[i][j])
-    #             var_lst.append(tmp)
-    #         solver.Add(solver.Sum(var_lst)/e[j][m])
-    #     solver.Add(solver.Sum([x1[i][j] for lst in indexes for j in fabricantes])/e[j][m])
-    # solver.Add(solver.Sum(x1[i][j] for j in fabricantes for i in [4,5,6]))
-    # solver.Add(solver.Sum(x1[i][j] for j in fabricantes for i in [7,8]))
 
-        # R1
+    # R1
     for i in proveedores:
         solver.Add(solver.Sum(x1[i][j] for j in fabricantes) <= a1[i], f"R1")
 
@@ -209,15 +184,13 @@ def main():
 
         write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, sol_x1, ['E28'], 'S1')
         write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, sol_x2, ['I28'], 'S2')
-        # write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, var_costs_x1, ['N28'],'S3')
-        # write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, var_costs_x2, ['E38'], 'S4')
-        write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, transport_money_costs_x1, ['I38'], 'S5')
-        write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, transport_money_costs_x2, ['N38'], 'S6')
-        write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, fabrication_money_costs_x1,['E48'] , 'S7')
-        write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, fabrication_money_costs_x2, ['I48'], 'S8')
-        write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, total_money_cost_x1, ['N48'], 'S9')
-        write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, total_money_cost_x2, ['E58'], 'S10')
-        write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, product_by_mat, ['I58'], 'S11')
+        write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, transport_money_costs_x1, ['N28'], 'S3')
+        write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, transport_money_costs_x2, ['E38'], 'S4')
+        write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, fabrication_money_costs_x1,['I38'] , 'S5')
+        write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, fabrication_money_costs_x2, ['N38'], 'S6')
+        write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, total_money_cost_x1, ['E48'], 'S7')
+        write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, total_money_cost_x2, ['I48'], 'S8')
+        write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, product_by_mat, ['N48'], 'S9')
         # funcion objetivo
         write_list_to_excel(excel_doc, EXCEL_FILE_NAME, sheet, [FO_value,], ['A28'], 'Valor de la Función Objetivo')
 

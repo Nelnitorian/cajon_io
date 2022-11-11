@@ -1,14 +1,16 @@
 # -*- coding: utf-8 -*-
 import collections
 
-import openpyxl
 import re
 import pandas as pd
 import json
 import numpy as np
-#from tabulate import tabulate
 
-
+__author__ = "Juan José Rosendo, Eduardo Rubio, Belén María Lozano"
+__credits__ = ["Dpto. Ing. de Organización, Universidad de Sevilla"]
+"""
+    Para crear estos scripts de utilidades se ha partido de forma vaga de los scripts propuestos en IOfunctionsExcel.py.
+"""
 def Read_Excel_to_List(sheet,Range1, Range2):
     listaAux = []
     multiple_cells = sheet[Range1:Range2]
@@ -19,17 +21,7 @@ def Read_Excel_to_List(sheet,Range1, Range2):
     return listaAux
 
 def Read_Dic_Single_Value_from_Excel(sheet, ranges):
-    """
-    La idea detrás de esta función es usar la primera columna como claves de un diccionario y añadir los valores
-    de la fila como un único elemento.
-    :param sheet:
-    :param ranges:
-    :return:
-    """
 
-    # dictionary = Read_Dic_List_Value_from_Excel(sheet, ranges)
-    # for key in dictionary.keys():
-    #     dictionary[key] = dictionary[key][0]
     range1 = ranges[0]
     range2 = ranges[1]
     key_r1 = re.findall(r'\D+', range1)[0]+re.findall(r'\d+', range1)[0]
