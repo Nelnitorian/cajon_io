@@ -5,6 +5,7 @@ import re
 import pandas as pd
 import json
 import numpy as np
+from math import sqrt
 
 __author__ = "Juan José Rosendo, Eduardo Rubio, Belén María Lozano"
 __credits__ = ["Dpto. Ing. de Organización, Universidad de Sevilla"]
@@ -24,19 +25,21 @@ def read_dic_single_value_from_excel(sheet, ranges):
 
     range1 = ranges[0]
     range2 = ranges[1]
-    key_r1 = re.findall(r'\D+', range1)[0]+re.findall(r'\d+', range1)[0]
-    key_r2 = re.findall(r'\D+', range1)[0]+re.findall(r'\d+', range2)[0]
-    val_r1 = re.findall(r'\D+', range2)[0]+re.findall(r'\d+', range1)[0]
-    val_r2 = re.findall(r'\D+', range2)[0]+re.findall(r'\d+', range2)[0]
+
+    key_r1 = extract_letters(range1)+extract_numbers(range1)
+    key_r2 = extract_letters(range1)+extract_numbers(range2)
+    val_r1 = extract_letters(range2)+extract_numbers(range1)
+    val_r2 = extract_letters(range2)+extract_numbers(range2)
+
     keys = Read_Excel_to_List(sheet, key_r1, key_r2)
     vals = Read_Excel_to_List(sheet, val_r1, val_r2)
     dic = dict(zip(keys, vals))
     return dic
 
 def read_from_excel_to_dataframe(excel_name, sheet_name, range):
-    range_param = re.findall(r'\D+', range[0])[0]+":"+re.findall(r'\D+', range[1])[0]
-    skiprows_param = int(re.findall(r'\d+', range[0])[0])-1
-    nrows_param = int(re.findall(r'\d+', range[1])[0]) - skiprows_param
+    range_param = extract_letters(range[0])+":"+extract_letters(range[1])
+    skiprows_param = int(extract_numbers(range[0]))-1
+    nrows_param = int(extract_numbers(range[1])) - skiprows_param
     return fill_df_values(pd.read_excel(excel_name, sheet_name, skiprows = skiprows_param, nrows=nrows_param,  usecols= range_param).dropna(how='all'))
 
 def fill_df_values(df):
@@ -131,15 +134,64 @@ def calculate_write_ranges_dic(dic, start):
     l1 = len(list(dic.keys()))
     l2 = len(list(dic[list(dic.keys())[0]].keys()))
     r1 = start
-    start_col = re.findall(r'\D+', r1)[0]
-    start_row = re.findall(r'\d+', r1)[0]
+    start_col = extract_letters(r1)
+    start_row = extract_numbers(r1)
     r2 = chr(ord(start_col)+l2)+str(int(start_row)+l1)
     return r1, r2
 
 def calculate_write_ranges_lst(lst, start):
     l1 = len(list(lst))
     r1 = start
-    start_col = re.findall(r'\D+', r1)[0]
-    start_row = re.findall(r'\d+', r1)[0]
+    start_col = extract_letters(r1)
+    start_row = extract_numbers(r1)
     r2 = start_col+str(int(start_row)+l1)
     return r1, r2
+
+def calculate_write_ranges_from_dic_array(lst, start = 'D1'):
+    # Se van a calcular los rangos de escritura de forma que queden de forma cuadrangular
+    max_tables_in_row = int(sqrt(len(lst)))
+
+    ranges = []
+
+    new_start = start
+    max_dic_size_in_row = 0
+    permanent_increment = 0
+    for i in range(len(lst)):
+        dic = lst[i]
+        new_range = calculate_write_ranges_dic(dic, new_start)
+        ranges.append(new_range)
+        if len(dic)>max_dic_size_in_row:
+            max_dic_size_in_row = len(dic)
+        if (i+1)%max_tables_in_row==0:
+            permanent_increment += max_dic_size_in_row+3
+            max_dic_size_in_row = 0
+            new_start = extract_letters(start)+str(permanent_increment)
+        else:
+            new_start = calculate_new_range_start(new_range)
+    return ranges
+def calculate_new_range_start(ranges):
+    r1 = ranges[0]
+    r2 = ranges[1]
+    start_row = extract_numbers(r1)
+    end_col = extract_letters(r2)
+    new_cell = chr(ord(end_col) + 2) + start_row
+    return new_cell
+
+def extract_letters(word):
+    return re.findall(r'\D+', word)[0]
+
+def extract_numbers(word):
+    return re.findall(r'\d+', word)[0]
+
+def create_nested_dic(primary_key, secondary_key, value):
+    aux = create_empty_nested_dics(primary_key)
+    for i in primary_key:
+        aux[i] = create_dic(secondary_key, value)
+    return aux
+
+def calculate_minimum(lst):
+    m = lst[0]
+    for i in lst:
+        if i<m:
+            m=i
+    return m
