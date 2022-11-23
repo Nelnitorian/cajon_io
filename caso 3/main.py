@@ -9,6 +9,7 @@ import pandas as pd
 EXCEL_FILE_NAME = 'caso3_excel.xlsx'
 DATA_SHEET_NAME = 'Datos'
 ANSWER_SHEET_BASE_NAME = 'Anio'
+ANSWER_SUMMARY_NAME = 'Resumen'
 N_INITIAL_FACTORIES = 2
 
 def main():
@@ -127,17 +128,17 @@ def main():
     # R2
     for t in anios:
         for j in fabricantes:
-            solver.Add(solver.Sum(x1[t][i][j] if o[t][j] else 0 for i in proveedores) == b1[t][j], f"R2")
+            solver.Add(solver.Sum(x1[t][i][j] if o[t][j]==1 else 0 for i in proveedores) == b1[t][j], f"R2")
 
     # R3
     for t in anios:
         for i in fabricantes:
-            solver.Add(solver.Sum(x2[t][i][j] if o[t][i] else 0 for j in clientes) <= p_total[t][i], f"R3")
+            solver.Add(solver.Sum(x2[t][i][j] if o[t][i]==1 else 0 for j in clientes) <= p_total[t][i], f"R3")
 
     # R4
     for t in anios:
         for j in clientes:
-            solver.Add(solver.Sum(x2[t][i][j] if o[t][i] else 0 for i in fabricantes) == b2[t][j], f"R4")
+            solver.Add(solver.Sum(x2[t][i][j] if o[t][i]==1 else 0 for i in fabricantes) == b2[t][j], f"R4")
 
     # R5
     for t in anios:
