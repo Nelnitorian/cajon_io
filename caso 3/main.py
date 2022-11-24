@@ -244,7 +244,7 @@ def main():
             answer_sheet = excel_doc[ANSWER_SHEET_BASE_NAME+str(int(t))]
             dics_array = [sol_x1, sol_x2, transport_money_costs_x1,
                           transport_money_costs_x2, fabrication_money_costs_x1, fabrication_money_costs_x2,
-                          total_money_cost_x1, total_money_cost_x2, product_by_mat, operacion]
+                          total_money_cost_x1, total_money_cost_x2, product_by_mat]
             ranges = calculate_write_ranges_from_dic_array(dics_array, start='D1')
             for i in range(len(dics_array)):
                 write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, answer_sheet, dics_array[i], ranges[i], f'S{i+1}')
@@ -252,6 +252,10 @@ def main():
             # funcion objetivo
             write_list_to_excel(excel_doc, EXCEL_FILE_NAME, answer_sheet, [t_FO_value, ], ['A4'], 'Valor de la Función Objetivo')
 
+        print(f"Valor de la función objetivo total: {FO.solution_value()}")
+        sum_demanda = sum(sum(table_contents['T5'][key]) for key in list(table_contents['T5'].keys())[1:])
+        precio_por_producto = 1.2*FO.solution_value()/sum_demanda
+        print(f"El valor por producto para conseguir un 20% de beneficio es {precio_por_producto}")
     else:
         print('No hay solución óptima. Error.')
 
