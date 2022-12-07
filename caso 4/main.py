@@ -37,17 +37,28 @@ def main():
 
     tipos = list(table_contents['T2']["Datos producción"])
     intervalos = list(table_contents['T1']['ID'])
+    intervalos_aug = ["Iinicial"]+intervalos
 
     # Definición de constantes
     CANTIDAD_POR_TIPO = create_dic(tipos, [list(range(12)), list(range(10)), list(range(5))])
-    d = create_dic(tipos, calculate_interval_list(table_contents['T1']['Hora']))
-    n = create_dic(tipos, table_contents['T1']['Demanda'])
+    d = create_dic(intervalos, calculate_interval_list(table_contents['T1']['Hora']))
+    nec = create_dic(intervalos, parse_complex_string_numbers(table_contents['T1']['Demanda']))
     pmin = create_dic(tipos, extract_list_numbers(table_contents['T2']['Mínima producción']))
     pmax = create_dic(tipos, extract_list_numbers(table_contents['T2']['Mínima producción']))
     cmin = create_dic(tipos, table_contents['T2']['Coste por hora a mínimo nivel'])
     cext = create_dic(tipos, table_contents['T2']['Coste extra por MW sobre el mínimo'])
     capt = create_dic(tipos, table_contents['T2']['Coste de arranque'])
 
+    a = create_empty_nested_dics(intervalos)
+    c = create_empty_nested_dics(intervalos)
+    for i in range(len(intervalos_aug)-1):
+        a[intervalos_aug[i]] = create_empty_nested_dics(tipos)
+        c[intervalos_aug[i]] = create_empty_nested_dics(tipos)
+    for i in range(len(intervalos_aug)-1):
+        for t in tipos:
+            for n in CANTIDAD_POR_TIPO[t]:
+                a[intervalos_aug[i]][t][n] = solver.IntVar(0, 1, f"a_{i}_{t}_{n}")
+                c[intervalos_aug[i]][t][n] = solver.IntVar(0, 1, f"c_{i}_{t}_{n}")
 
     p = create_empty_nested_dics(intervalos)
     for i in intervalos:
@@ -55,27 +66,60 @@ def main():
     for i in intervalos:
         for t in tipos:
             for n in CANTIDAD_POR_TIPO[t]:
-                p[i][t][n] = solver.IntVar(pmin[t], pmax[t], f"p_{i}_{t}_{n}")
+                p[i][t][n] = solver.IntVar(0, pmax[t], f"p_{i}_{t}_{n}")
 
-    o = create_empty_nested_dics(intervalos)
-    for i in intervalos:
+    o = create_empty_nested_dics(intervalos_aug)
+    for i in intervalos_aug:
         o[i] = create_empty_nested_dics(tipos)
     for i in intervalos:
         for t in tipos:
             for n in CANTIDAD_POR_TIPO[t]:
                 o[i][t][n] = solver.NumVar(0, 1, f"o_{i}_{t}_{n}")
+    # Se asigna el primer intervalo
+    for t in tipos:
+        for n in CANTIDAD_POR_TIPO[t]:
+            o[intervalos_aug[0]][t][n] = 0
+
+    # R1
+    for i in intervalos:
+        for t in tipos:
+            for n in CANTIDAD_POR_TIPO[t]:
+                solver.Add(pmin[t]*o[i][t][n] <= p[i][t][n], f"R1_{i}_{t}_{n}")
+
+    # R2
+    for i in intervalos:
+        for t in tipos:
+            for n in CANTIDAD_POR_TIPO[t]:
+                solver.Add(p[i][t][n] <= pmax[t]*o[i][t][n], f"R2_{i}_{t}_{n}")
 
     # R3
     for i in intervalos:
-        solver.Add(solver.Sum(p[i][t][n]*o[i][t][n] for t in tipos for n in CANTIDAD_POR_TIPO[t]) >= n[i], f"R3_{i}")
+        solver.Add(solver.Sum(p[i][t][n] for t in tipos for n in CANTIDAD_POR_TIPO[t]) >= nec[i], f"R3_{i}")
 
     # R4
     for i in intervalos:
-        solver.Add(solver.Sum(pmax[t]*o[i][t][n] for t in tipos for n in CANTIDAD_POR_TIPO[t]) >= 1.15*n[i], f"R4_{i}")
+        solver.Add(solver.Sum(pmax[t]*o[i][t][n] for t in tipos for n in CANTIDAD_POR_TIPO[t]) >= 1.15*nec[i], f"R4_{i}")
 
-    FO = solver.Sum(d[i]*((p[i][t][n]-pmin[t])*cext[t]+cmin[t])*o[i][t][n] for i in intervalos for t in tipos for n in CANTIDAD_POR_TIPO[t]) +\
-        solver.Sum(o[intervalos[0]][t][n]*capt[t] for t in tipos for n in CANTIDAD_POR_TIPO[t]) +\
-        solver.Sum((1-o[intervalos[i]][t][n]*capt[t])*o[intervalos[i+1]][t][n]*capt[t] for i in range(len(intervalos)-1) for t in tipos for n in CANTIDAD_POR_TIPO[t])
+    # R5
+    for i in range(len(intervalos_aug)-1):
+        for t in tipos:
+            for n in CANTIDAD_POR_TIPO[t]:
+                solver.Add(o[intervalos_aug[i+1]][t][n] == o[intervalos_aug[i]][t][n] + a[intervalos_aug[i]][t][n] - c[intervalos_aug[i]][t][n], f"R5_{i}_{t}_{n}")
+
+    # R6
+    for i in range(len(intervalos_aug)-1):
+        for t in tipos:
+            for n in CANTIDAD_POR_TIPO[t]:
+                solver.Add(c[intervalos_aug[i]][t][n] <= o[intervalos_aug[i]][t][n], f"R6_{intervalos_aug[i]}_{t}_{n}")
+
+    # R7
+    for i in range(len(intervalos_aug)-1):
+        for t in tipos:
+            for n in CANTIDAD_POR_TIPO[t]:
+                solver.Add(a[intervalos_aug[i]][t][n] <= (1-o[intervalos_aug[i]][t][n]), f"R7_{intervalos_aug[i]}_{t}_{n}")
+
+    FO = solver.Sum(d[i]*((p[i][t][n]-pmin[t]*o[i][t][n])*cext[t]+cmin[t]*o[i][t][n]) for i in intervalos for t in tipos for n in CANTIDAD_POR_TIPO[t]) +\
+        solver.Sum(a[intervalos_aug[i]][t][n]*capt[t] for i in range(len(intervalos_aug)-1) for t in tipos for n in CANTIDAD_POR_TIPO[t])
     solver.Minimize(FO)
     status = solver.Solve()
 

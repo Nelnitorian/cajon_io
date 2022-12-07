@@ -183,6 +183,14 @@ def extract_letters(word):
 def extract_numbers(word):
     return re.findall(r'\d+', word)[0]
 
+def extract_complex_numbers(word):
+    lst = re.findall(r'\d+', word)
+    return int(''.join(lst))
+
+def parse_complex_string_numbers(lst):
+    return [extract_complex_numbers(word) for word in lst]
+
+
 def extract_list_numbers(lst):
     lst_aux = []
     for item in lst:
