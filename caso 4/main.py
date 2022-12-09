@@ -122,10 +122,6 @@ def main():
         solver.Sum(a[intervalos_aug[i]][t][n]*capt[t] for i in range(len(intervalos_aug)-1) for t in tipos for n in CANTIDAD_POR_TIPO[t])
     solver.Minimize(FO)
     status = solver.Solve()
-    import io
-    lp_model=solver.ExportModelAsLpFormat(False)
-    with io.open("Modelo.txt", "w") as g:
-        print(lp_model, file=g)
 
     if status == pywraplp.Solver.OPTIMAL:
         print('El problema tiene solucion.')
