@@ -163,7 +163,7 @@ def calculate_write_ranges_from_dic_array(lst, start = 'D1'):
         if len(dic)>max_dic_size_in_row:
             max_dic_size_in_row = len(dic)
         if (i+1)%max_tables_in_row==0:
-            permanent_increment += max_dic_size_in_row+3
+            permanent_increment += max_dic_size_in_row+5
             max_dic_size_in_row = 0
             new_start = extract_letters(start)+str(permanent_increment)
         else:

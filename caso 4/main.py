@@ -19,7 +19,7 @@ def main():
     """
 
 
-    solver = pywraplp.Solver.CreateSolver('SCIP')
+    solver = pywraplp.Solver.CreateSolver('CBC')
 
     # Read from excel
     excel_doc = openpyxl.load_workbook(EXCEL_FILE_NAME, data_only=True)
@@ -44,7 +44,7 @@ def main():
     d = create_dic(intervalos, calculate_interval_list(table_contents['T1']['Hora']))
     nec = create_dic(intervalos, parse_complex_string_numbers(table_contents['T1']['Demanda']))
     pmin = create_dic(tipos, extract_list_numbers(table_contents['T2']['Mínima producción']))
-    pmax = create_dic(tipos, extract_list_numbers(table_contents['T2']['Mínima producción']))
+    pmax = create_dic(tipos, extract_list_numbers(table_contents['T2']['Máxima producción']))
     cmin = create_dic(tipos, table_contents['T2']['Coste por hora a mínimo nivel'])
     cext = create_dic(tipos, table_contents['T2']['Coste extra por MW sobre el mínimo'])
     capt = create_dic(tipos, table_contents['T2']['Coste de arranque'])
@@ -99,13 +99,13 @@ def main():
     # R4
     for i in intervalos:
         solver.Add(solver.Sum(pmax[t]*o[i][t][n] for t in tipos for n in CANTIDAD_POR_TIPO[t]) >= 1.15*nec[i], f"R4_{i}")
-
+    """
     # R5
     for i in range(len(intervalos_aug)-1):
         for t in tipos:
             for n in CANTIDAD_POR_TIPO[t]:
                 solver.Add(o[intervalos_aug[i+1]][t][n] == o[intervalos_aug[i]][t][n] + a[intervalos_aug[i]][t][n] - c[intervalos_aug[i]][t][n], f"R5_{i}_{t}_{n}")
-
+    """
     # R6
     for i in range(len(intervalos_aug)-1):
         for t in tipos:
@@ -122,10 +122,13 @@ def main():
         solver.Sum(a[intervalos_aug[i]][t][n]*capt[t] for i in range(len(intervalos_aug)-1) for t in tipos for n in CANTIDAD_POR_TIPO[t])
     solver.Minimize(FO)
     status = solver.Solve()
+    import io
+    lp_model=solver.ExportModelAsLpFormat(False)
+    with io.open("Modelo.txt", "w") as g:
+        print(lp_model, file=g)
 
     if status == pywraplp.Solver.OPTIMAL:
         print('El problema tiene solucion.')
-
         p_sol = create_empty_nested_dics(intervalos)
         for i in intervalos:
             p_sol[i] = create_empty_nested_dics(tipos)
@@ -142,28 +145,35 @@ def main():
                 for n in CANTIDAD_POR_TIPO[t]:
                     o_sol[i][t][n] = o[i][t][n].solution_value()
 
+        a_sol = create_empty_nested_dics(intervalos_aug)
+        for i in range(len(intervalos_aug)-1):
+            a_sol[intervalos_aug[i]] = create_empty_nested_dics(tipos)
+        for i in range(len(intervalos_aug)-1):
+            for t in tipos:
+                for n in CANTIDAD_POR_TIPO[t]:
+                    a_sol[intervalos_aug[i]][t][n] = a[intervalos_aug[i]][t][n].solution_value()
+
         suma_modulos_abiertos = create_empty_nested_dics(intervalos)
         for i in intervalos:
             for t in tipos:
                 suma_modulos_abiertos[i][t] = sum(o_sol[i][t])
 
         total_marginal_cost = create_empty_nested_dics(intervalos)
-        for i in intervalos:
+        for i in range(len(intervalos_aug) - 1):
             i_FO_value = sum(
-                d[i] * ((p_sol[i][t][n] - pmin[t]) * cext[t] + cmin[t]) * o_sol[i][t][n] for i in intervalos for t in tipos for
+                d[intervalos_aug[i+1]] * ((p_sol[intervalos_aug[i+1]][t][n] - pmin[t] * o_sol[intervalos_aug[i+1]][t][n]) * cext[t] + cmin[t]* o_sol[intervalos_aug[i+1]][t][n]) for t in tipos for
                 n in CANTIDAD_POR_TIPO[t]) + \
-                 sum(o_sol[intervalos[0]][t][n] * capt[t] for t in tipos for n in CANTIDAD_POR_TIPO[t]) + \
-                 sum((1 - o_sol[intervalos[i]][t][n] * capt[t]) * o_sol[intervalos[i + 1]][t][n] * capt[t] for i in
-                            range(len(intervalos) - 1) for t in tipos for n in CANTIDAD_POR_TIPO[t])
-            total_marginal_cost[i]["Coste"] = i_FO_value
+                         sum(a_sol[intervalos_aug[i]][t][n]*capt[t] for t in tipos for n in CANTIDAD_POR_TIPO[t])
+
+            total_marginal_cost[intervalos_aug[i+1]]["Coste"] = i_FO_value
 
         total_marginal_production = create_empty_nested_dics(intervalos)
         for i in intervalos:
-            total_marginal_production[i]["A"] = sum(p_sol[i][t][n] for t in tipos for n in CANTIDAD_POR_TIPO[t])
+            total_marginal_production[i]["Producción por intervalo"] = sum(p_sol[i][t][n] for t in tipos for n in CANTIDAD_POR_TIPO[t])
 
         marginal_cost = create_empty_nested_dics(intervalos)
         for i in intervalos:
-            marginal_cost[i]["Precio mínimo del MW"] = total_marginal_cost[i]["Coste"]/total_marginal_production[i][""]
+            marginal_cost[i]["Precio mínimo del MW"] = total_marginal_cost[i]["Coste"]/total_marginal_production[i]["Producción por intervalo"]
 
         answer_sheet = excel_doc[ANSWER_SHEET_NAME]
         dics_array = [suma_modulos_abiertos, total_marginal_cost, total_marginal_production,
