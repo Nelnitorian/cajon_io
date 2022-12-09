@@ -74,7 +74,7 @@ def main():
     for i in intervalos:
         for t in tipos:
             for n in CANTIDAD_POR_TIPO[t]:
-                o[i][t][n] = solver.NumVar(0, 1, f"o_{i}_{t}_{n}")
+                o[i][t][n] = solver.IntVar(0, 1, f"o_{i}_{t}_{n}")
     # Se asigna el primer intervalo
     for t in tipos:
         for n in CANTIDAD_POR_TIPO[t]:
@@ -156,13 +156,13 @@ def main():
         suma_modulos_abiertos = create_empty_nested_dics(intervalos)
         for i in intervalos:
             for t in tipos:
-                suma_modulos_abiertos[i][t] = sum(o_sol[i][t])
+                suma_modulos_abiertos[i][t] = sum(o_sol[i][t].values())
 
         total_marginal_cost = create_empty_nested_dics(intervalos)
         for i in range(len(intervalos_aug) - 1):
             i_FO_value = sum(
                 d[intervalos_aug[i+1]] * ((p_sol[intervalos_aug[i+1]][t][n] - pmin[t] * o_sol[intervalos_aug[i+1]][t][n]) * cext[t] + cmin[t]* o_sol[intervalos_aug[i+1]][t][n]) for t in tipos for
-                n in CANTIDAD_POR_TIPO[t]) + \
+                n in CANTIDAD_POR_TIPO[t]) +\
                          sum(a_sol[intervalos_aug[i]][t][n]*capt[t] for t in tipos for n in CANTIDAD_POR_TIPO[t])
 
             total_marginal_cost[intervalos_aug[i+1]]["Coste"] = i_FO_value
