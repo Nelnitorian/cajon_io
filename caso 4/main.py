@@ -99,13 +99,13 @@ def main():
     # R4
     for i in intervalos:
         solver.Add(solver.Sum(pmax[t]*o[i][t][n] for t in tipos for n in CANTIDAD_POR_TIPO[t]) >= 1.15*nec[i], f"R4_{i}")
-    """
+
     # R5
     for i in range(len(intervalos_aug)-1):
         for t in tipos:
             for n in CANTIDAD_POR_TIPO[t]:
                 solver.Add(o[intervalos_aug[i+1]][t][n] == o[intervalos_aug[i]][t][n] + a[intervalos_aug[i]][t][n] - c[intervalos_aug[i]][t][n], f"R5_{i}_{t}_{n}")
-    """
+
     # R6
     for i in range(len(intervalos_aug)-1):
         for t in tipos:
