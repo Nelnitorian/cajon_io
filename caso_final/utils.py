@@ -47,7 +47,7 @@ def fill_df_values(df):
         aux_lst = fill_list_values(list(df[key]))
         if not collections.Counter(list(df[key])) == collections.Counter(aux_lst):
             df[key] = aux_lst
-    return df
+    return df.fillna(0)
 
 def fill_list_values(lst):
     for i in range(len(lst)-1):
@@ -59,6 +59,14 @@ def parse_dic_values(dic, **kwargs):
     for key in dic.keys():
         dic[key] = parse_single_value(dic[key], **kwargs)
     return dic
+
+def extract_indexes_with_value(df):
+    matrix = []
+    for i in range(len(df)):
+        a = df.loc[i, 1:] ??
+        b = a.to_dict()
+        for key, item in b.items():
+            if item == 1.0:
 
 def parse_single_value(string, char=','):
     frags = string.split(char)

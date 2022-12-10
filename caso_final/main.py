@@ -6,7 +6,7 @@ from utils import *
 import pandas as pd
 
 # Constants
-EXCEL_FILE_NAME = 'caso4_excel.xlsx'
+EXCEL_FILE_NAME = 'casofinal_excel.xlsx'
 DATA_SHEET_NAME = 'Datos'
 ANSWER_SHEET_NAME = 'Resultados'
 
@@ -23,17 +23,32 @@ def main():
 
     # Read from excel
     excel_doc = openpyxl.load_workbook(EXCEL_FILE_NAME, data_only=True)
-    data_sheet = excel_doc[DATA_SHEET_NAME]
 
     # Se lee el diccionario donde está la información de las tablas
-    table_information = parse_dic_values(read_dic_single_value_from_excel(data_sheet, ('A2', 'B5')))
+    table_information = {'Patients': ['A1', 'D101'], 'Surgeons': ['B4', 'N10'], 'ORs': ['A1', 'M5'], 'Time_Slots': ['A1', 'A4'], 'Days': ['A1', 'A6']}
     table_contents = {}
     for key, value in table_information.items():
-        table_contents[key] = read_from_excel_to_dataframe(EXCEL_FILE_NAME, DATA_SHEET_NAME, value)
-
-
+        table_contents[key] = read_from_excel_to_dataframe(EXCEL_FILE_NAME, key, value)
 
     # Definición de indices
+
+    Kid = 'OR{i}'
+    Lid = 'S{i}'
+    Pid = '#p#{i}'
+
+    quirofanos_chr = list(table_contents['ORs']["ORs"])
+    cirujanos_chr = list(table_contents['Surgeons']["Sid"])
+    pacientes_chr = list(table_contents['Patients']["patient_id"])
+
+    quirofanos = list(range(len(quirofanos_chr)))
+    cirujanos = list(range(len(cirujanos_chr)))
+    pacientes = list(range(len(pacientes_chr)))
+
+    # Definición de constantes
+
+    skill_quirofanos = extract_indexes_with_value(table_contents['Patients'])
+    skill_cirujanos =
+    skill_pacientes =
 
     tipos = list(table_contents['T2']["Datos producción"])
     intervalos = list(table_contents['T1']['ID'])
