@@ -6,6 +6,7 @@ import pandas as pd
 import json
 import numpy as np
 from math import sqrt
+from datetime import datetime
 
 __author__ = "Juan José Rosendo, Eduardo Rubio, Belén María Lozano"
 __credits__ = ["Dpto. Ing. de Organización, Universidad de Sevilla"]
@@ -63,10 +64,10 @@ def parse_dic_values(dic, **kwargs):
 def extract_indexes_with_value(df):
     matrix = []
     for i in range(len(df)):
-        a = df.loc[i, 1:] ??
-        b = a.to_dict()
-        for key, item in b.items():
-            if item == 1.0:
+        a = df.loc[i, :]
+        b = a[a == 1]
+        matrix.append(list(b.keys()))
+    return matrix
 
 def parse_single_value(string, char=','):
     frags = string.split(char)
@@ -87,6 +88,24 @@ def create_empty_nested_dics(keys):
 
 def create_dic(keys, values):
     return dict(zip(list(keys), list(values)))
+
+def create_list_empty_nested_dics(length):
+    lst = []
+    for i in range(length):
+        lst.append({})
+    return lst
+
+def calculate_list_date_difference(unparsed_date_lst):
+    aux_lst = []
+    now = datetime.now()
+    for then in unparsed_date_lst:
+        delta = now-parse_date(then)
+        aux_lst.append(delta.days)
+    return aux_lst
+
+def parse_date(date):
+    return date.to_pydatetime()
+
 
 def extract_list_value(dic):
     for key in dic.keys():
@@ -190,6 +209,9 @@ def extract_letters(word):
 
 def extract_numbers(word):
     return re.findall(r'\d+', word)[0]
+
+def extract_all_numbers(word):
+    return re.findall(r'\d+', word)
 
 def extract_complex_numbers(word):
     lst = re.findall(r'\d+', word)

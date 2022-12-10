@@ -3,13 +3,19 @@
 import openpyxl as openpyxl
 from ortools.linear_solver import pywraplp
 from utils import *
-import pandas as pd
 
 # Constants
 EXCEL_FILE_NAME = 'casofinal_excel.xlsx'
 DATA_SHEET_NAME = 'Datos'
 ANSWER_SHEET_NAME = 'Resultados'
 
+PATIENTS_DATA_SEET_NAME = 'Patients'
+SURGEONS_DATA_SEET_NAME = 'Surgeons'
+ORS_DATA_SEET_NAME = 'ORs'
+TIME_SLOTS_DATA_SEET_NAME = 'Time_Slots'
+DAYS_DATA_SEET_NAME = 'Days'
+
+OPERATION_DURATION = 2 # hours
 
 def main():
     """
@@ -25,173 +31,141 @@ def main():
     excel_doc = openpyxl.load_workbook(EXCEL_FILE_NAME, data_only=True)
 
     # Se lee el diccionario donde está la información de las tablas
-    table_information = {'Patients': ['A1', 'D101'], 'Surgeons': ['B4', 'N10'], 'ORs': ['A1', 'M5'], 'Time_Slots': ['A1', 'A4'], 'Days': ['A1', 'A6']}
+    table_information = {PATIENTS_DATA_SEET_NAME: ['A1', 'D101'], SURGEONS_DATA_SEET_NAME: ['B4', 'N10'], ORS_DATA_SEET_NAME: ['A1', 'M5'],
+                         TIME_SLOTS_DATA_SEET_NAME: ['A1', 'A4'], DAYS_DATA_SEET_NAME: ['A1', 'A6']}
     table_contents = {}
     for key, value in table_information.items():
         table_contents[key] = read_from_excel_to_dataframe(EXCEL_FILE_NAME, key, value)
 
     # Definición de indices
 
-    Kid = 'OR{i}'
-    Lid = 'S{i}'
-    Pid = '#p#{i}'
-
-    quirofanos_chr = list(table_contents['ORs']["ORs"])
-    cirujanos_chr = list(table_contents['Surgeons']["Sid"])
-    pacientes_chr = list(table_contents['Patients']["patient_id"])
+    quirofanos_chr = list(table_contents[ORS_DATA_SEET_NAME]["ORs"])
+    cirujanos_chr = list(table_contents[SURGEONS_DATA_SEET_NAME]["Sid"])
+    pacientes_chr = list(table_contents[PATIENTS_DATA_SEET_NAME]["patient_id"])
+    dias_chr = list(table_contents[DAYS_DATA_SEET_NAME]["Days"])
+    turnos_chr = list(table_contents[TIME_SLOTS_DATA_SEET_NAME]["Time_Slots"])
 
     quirofanos = list(range(len(quirofanos_chr)))
     cirujanos = list(range(len(cirujanos_chr)))
     pacientes = list(range(len(pacientes_chr)))
+    dias = list(range(len(dias_chr)))
+    turnos = list(range(len(turnos_chr)))
 
     # Definición de constantes
 
-    skill_quirofanos = extract_indexes_with_value(table_contents['Patients'])
-    skill_cirujanos =
-    skill_pacientes =
+    skill_quirofanos = extract_indexes_with_value(table_contents[ORS_DATA_SEET_NAME])
+    skill_cirujanos = extract_indexes_with_value(table_contents[SURGEONS_DATA_SEET_NAME])
+    skill_pacientes = list(table_contents[PATIENTS_DATA_SEET_NAME]["sType"])
 
-    tipos = list(table_contents['T2']["Datos producción"])
-    intervalos = list(table_contents['T1']['ID'])
-    intervalos_aug = ["Iinicial"]+intervalos
+    g = list(table_contents[PATIENTS_DATA_SEET_NAME]["imp"])
+    z = calculate_list_date_difference(list(table_contents[PATIENTS_DATA_SEET_NAME]["admision_date"]))
+    Kid = 'OR{i}'
+    Lid = 'S{i}'
+    Pid = '#p#{i}'
 
-    # Definición de constantes
-    CANTIDAD_POR_TIPO = create_dic(tipos, [list(range(12)), list(range(10)), list(range(5))])
-    d = create_dic(intervalos, calculate_interval_list(table_contents['T1']['Hora']))
-    nec = create_dic(intervalos, parse_complex_string_numbers(table_contents['T1']['Demanda']))
-    pmin = create_dic(tipos, extract_list_numbers(table_contents['T2']['Mínima producción']))
-    pmax = create_dic(tipos, extract_list_numbers(table_contents['T2']['Máxima producción']))
-    cmin = create_dic(tipos, table_contents['T2']['Coste por hora a mínimo nivel'])
-    cext = create_dic(tipos, table_contents['T2']['Coste extra por MW sobre el mínimo'])
-    capt = create_dic(tipos, table_contents['T2']['Coste de arranque'])
+    # Definición de variables de compatibilidad (paso necesario para la optimización)
+    indexes = create_list_empty_nested_dics(len(quirofanos))
+    for i in quirofanos:
+        for j in cirujanos:
+            # Patologías operables en el quirófano i por el cirujano j
+            skills_operables = list(set(skill_quirofanos[i])-(set(skill_quirofanos[i])-set(skill_cirujanos[j])))
+            if skills_operables:
+                # El cirujano puede operar
+                # Se calcula a qué pacientes puede operar:
+                skills_a_operar = list(set(skills_operables)-(set(skills_operables)-set(skill_pacientes)))
+                pacientes_a_operar = [i for i, x in enumerate(skill_pacientes) if x in skills_a_operar]
+                if pacientes_a_operar:
+                    indexes[i][j] = pacientes_a_operar
 
-    a = create_empty_nested_dics(intervalos)
-    c = create_empty_nested_dics(intervalos)
-    for i in range(len(intervalos_aug)-1):
-        a[intervalos_aug[i]] = create_empty_nested_dics(tipos)
-        c[intervalos_aug[i]] = create_empty_nested_dics(tipos)
-    for i in range(len(intervalos_aug)-1):
-        for t in tipos:
-            for n in CANTIDAD_POR_TIPO[t]:
-                a[intervalos_aug[i]][t][n] = solver.IntVar(0, 1, f"a_{i}_{t}_{n}")
-                c[intervalos_aug[i]][t][n] = solver.IntVar(0, 1, f"c_{i}_{t}_{n}")
+    # Definición de variables
+    x = []
+    for i in dias:
+        x.append([])
+        for j in turnos:
+            x[i].append([])
+            for k in quirofanos:
+                x[i][j].append([])
 
-    p = create_empty_nested_dics(intervalos)
-    for i in intervalos:
-        p[i] = create_empty_nested_dics(tipos)
-    for i in intervalos:
-        for t in tipos:
-            for n in CANTIDAD_POR_TIPO[t]:
-                p[i][t][n] = solver.IntVar(0, pmax[t], f"p_{i}_{t}_{n}")
-
-    o = create_empty_nested_dics(intervalos_aug)
-    for i in intervalos_aug:
-        o[i] = create_empty_nested_dics(tipos)
-    for i in intervalos:
-        for t in tipos:
-            for n in CANTIDAD_POR_TIPO[t]:
-                o[i][t][n] = solver.IntVar(0, 1, f"o_{i}_{t}_{n}")
-    # Se asigna el primer intervalo
-    for t in tipos:
-        for n in CANTIDAD_POR_TIPO[t]:
-            o[intervalos_aug[0]][t][n] = 0
+    for i in dias:
+        for j in turnos:
+            for k in quirofanos:
+                cirujanos_disp = indexes[k]
+                if cirujanos_disp:
+                    x[i][j][k] = {}
+                    for l, pacientes_disp in cirujanos_disp.items():
+                        x[i][j][k][l] = {}
+                        for m in pacientes_disp:
+                            x[i][j][k][l][m] = solver.IntVar(0, 1, f"x_{i}_{j}_{k}_{l}_{m}")
 
     # R1
-    for i in intervalos:
-        for t in tipos:
-            for n in CANTIDAD_POR_TIPO[t]:
-                solver.Add(pmin[t]*o[i][t][n] <= p[i][t][n], f"R1_{i}_{t}_{n}")
+    for i in dias:
+        for j in turnos:
+            for k in quirofanos:
+                solver.Add(solver.Sum([var for l, dic in x[i][j][k].items() for m, var in dic.items()]) <= 1)
 
-    # R2
-    for i in intervalos:
-        for t in tipos:
-            for n in CANTIDAD_POR_TIPO[t]:
-                solver.Add(p[i][t][n] <= pmax[t]*o[i][t][n], f"R2_{i}_{t}_{n}")
-
-    # R3
-    for i in intervalos:
-        solver.Add(solver.Sum(p[i][t][n] for t in tipos for n in CANTIDAD_POR_TIPO[t]) >= nec[i], f"R3_{i}")
+    # R2 y R3
+    # TODO compactar
+    for l in cirujanos:
+        accumulated_hours = []
+        for i in dias:
+            for j in turnos:
+                for k in quirofanos:
+                    if l in x[i][j][k].keys():
+                        dic = x[i][j][k][l]
+                        for m, var in dic.items():
+                            accumulated_hours.append(OPERATION_DURATION*var)
+        solver.Add(solver.Sum(accumulated_hours) <= 18)
+        solver.Add(solver.Sum(accumulated_hours) >= 10)
 
     # R4
-    for i in intervalos:
-        solver.Add(solver.Sum(pmax[t]*o[i][t][n] for t in tipos for n in CANTIDAD_POR_TIPO[t]) >= 1.15*nec[i], f"R4_{i}")
+    # TODO compactar
+    for m in pacientes:
+        accumulated_hours = []
+        for i in dias:
+            for j in turnos:
+                for k in quirofanos:
+                    for l, dic in x[i][j][k].items():
+                        if m in dic.keys():
+                            accumulated_hours.append(dic[m])
+        solver.Add(solver.Sum(accumulated_hours) <= 1)
 
     # R5
-    for i in range(len(intervalos_aug)-1):
-        for t in tipos:
-            for n in CANTIDAD_POR_TIPO[t]:
-                solver.Add(o[intervalos_aug[i+1]][t][n] == o[intervalos_aug[i]][t][n] + a[intervalos_aug[i]][t][n] - c[intervalos_aug[i]][t][n], f"R5_{i}_{t}_{n}")
+    # TODO compactar
+    days_reduced = []
+    for m in pacientes:
+        patient_operation = []
+        for i in dias:
+            for j in turnos:
+                for k in quirofanos:
+                    for l, dic in x[i][j][k].items():
+                        if m in dic.keys():
+                            patient_operation.append(dic[m])
+        days_reduced.append(z[m] * solver.Sum(patient_operation))
+
+    solver.Add(solver.Sum(days_reduced) >= 0.45*sum(z[m] for m in pacientes))
 
     # R6
-    for i in range(len(intervalos_aug)-1):
-        for t in tipos:
-            for n in CANTIDAD_POR_TIPO[t]:
-                solver.Add(c[intervalos_aug[i]][t][n] <= o[intervalos_aug[i]][t][n], f"R6_{intervalos_aug[i]}_{t}_{n}")
+    # al resolver el problema equivalente con menos coste computacional,
+    # no hace falta esta restricción
 
-    # R7
-    for i in range(len(intervalos_aug)-1):
-        for t in tipos:
-            for n in CANTIDAD_POR_TIPO[t]:
-                solver.Add(a[intervalos_aug[i]][t][n] <= (1-o[intervalos_aug[i]][t][n]), f"R7_{intervalos_aug[i]}_{t}_{n}")
-
-    FO = solver.Sum(d[i]*((p[i][t][n]-pmin[t]*o[i][t][n])*cext[t]+cmin[t]*o[i][t][n]) for i in intervalos for t in tipos for n in CANTIDAD_POR_TIPO[t]) +\
-        solver.Sum(a[intervalos_aug[i]][t][n]*capt[t] for i in range(len(intervalos_aug)-1) for t in tipos for n in CANTIDAD_POR_TIPO[t])
+    # FO
+    # TODO compactar
+    punctuation = []
+    for m in pacientes:
+        patient_operation = []
+        for i in dias:
+            for j in turnos:
+                for k in quirofanos:
+                    for l, dic in x[i][j][k].items():
+                        if m in dic.keys():
+                            patient_operation.append(dic[m])
+        punctuation.append(z[m] * g[m] * (1-solver.Sum(patient_operation)))
+    FO = solver.Sum(punctuation)
     solver.Minimize(FO)
     status = solver.Solve()
 
     if status == pywraplp.Solver.OPTIMAL:
         print('El problema tiene solucion.')
-        p_sol = create_empty_nested_dics(intervalos)
-        for i in intervalos:
-            p_sol[i] = create_empty_nested_dics(tipos)
-        for i in intervalos:
-            for t in tipos:
-                for n in CANTIDAD_POR_TIPO[t]:
-                    p_sol[i][t][n] = p[i][t][n].solution_value()
-
-        o_sol = create_empty_nested_dics(intervalos)
-        for i in intervalos:
-            o_sol[i] = create_empty_nested_dics(tipos)
-        for i in intervalos:
-            for t in tipos:
-                for n in CANTIDAD_POR_TIPO[t]:
-                    o_sol[i][t][n] = o[i][t][n].solution_value()
-
-        a_sol = create_empty_nested_dics(intervalos_aug)
-        for i in range(len(intervalos_aug)-1):
-            a_sol[intervalos_aug[i]] = create_empty_nested_dics(tipos)
-        for i in range(len(intervalos_aug)-1):
-            for t in tipos:
-                for n in CANTIDAD_POR_TIPO[t]:
-                    a_sol[intervalos_aug[i]][t][n] = a[intervalos_aug[i]][t][n].solution_value()
-
-        suma_modulos_abiertos = create_empty_nested_dics(intervalos)
-        for i in intervalos:
-            for t in tipos:
-                suma_modulos_abiertos[i][t] = sum(o_sol[i][t].values())
-
-        total_marginal_cost = create_empty_nested_dics(intervalos)
-        for i in range(len(intervalos_aug) - 1):
-            i_FO_value = sum(
-                d[intervalos_aug[i+1]] * ((p_sol[intervalos_aug[i+1]][t][n] - pmin[t] * o_sol[intervalos_aug[i+1]][t][n]) * cext[t] + cmin[t]* o_sol[intervalos_aug[i+1]][t][n]) for t in tipos for
-                n in CANTIDAD_POR_TIPO[t]) +\
-                         sum(a_sol[intervalos_aug[i]][t][n]*capt[t] for t in tipos for n in CANTIDAD_POR_TIPO[t])
-
-            total_marginal_cost[intervalos_aug[i+1]]["Coste"] = i_FO_value
-
-        total_marginal_production = create_empty_nested_dics(intervalos)
-        for i in intervalos:
-            total_marginal_production[i]["Producción por intervalo"] = sum(p_sol[i][t][n] for t in tipos for n in CANTIDAD_POR_TIPO[t])
-
-        marginal_cost = create_empty_nested_dics(intervalos)
-        for i in intervalos:
-            marginal_cost[i]["Precio mínimo del MW"] = total_marginal_cost[i]["Coste"]/total_marginal_production[i]["Producción por intervalo"]
-
-        answer_sheet = excel_doc[ANSWER_SHEET_NAME]
-        dics_array = [suma_modulos_abiertos, total_marginal_cost, total_marginal_production,
-                      marginal_cost]
-        ranges = calculate_write_ranges_from_dic_array(dics_array, start='C3')
-        for i in range(len(dics_array)):
-            write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, answer_sheet, dics_array[i], ranges[i], f'S{i+1}')
 
         print(f"Valor de la función objetivo total: {FO.solution_value()}")
     else:
