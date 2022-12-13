@@ -3,7 +3,6 @@
 import openpyxl as openpyxl
 from ortools.linear_solver import pywraplp
 from utils import *
-import pandas as pd
 
 # Constants
 EXCEL_FILE_NAME = 'casofinal_excel.xlsx'
@@ -177,7 +176,7 @@ def main():
             · Horario de cada cirujano | done 
             · Horario de cada quirófano | done
             · Lista de pacientes operados (con día, turno, cirujano, dolencia) | done
-            · Lista de pacientes en cola (con toda la info que viene en los datos) | falta
+            · Lista de pacientes en cola (con toda la info que viene en los datos) | done
         """
         x_sol = []
         for i in dias:
@@ -201,7 +200,11 @@ def main():
         # Con valores (quirofano, paciente, dolencia)
         surgeon_calendar = {}
         for l in cirujanos_chr:
-            surgeon_calendar[l] = create_empty_nested_dics(turnos_chr)
+            surgeon_calendar[l] = {}
+            for j in turnos_chr:
+                surgeon_calendar[l][j] = {}
+                for i in dias_chr:
+                    surgeon_calendar[l][j][i] = ''
 
         for l in cirujanos:
             for i in dias:
@@ -212,14 +215,16 @@ def main():
                             for m, var in dic.items():
                                 if var == 1:
                                     surgeon_calendar[cirujanos_chr[l]][turnos_chr[j]][dias_chr[i]] = f"({quirofanos_chr[k]}, {pacientes_chr[m]}, {skill_pacientes[m]})"
-                                else:
-                                    surgeon_calendar[cirujanos_chr[l]][turnos_chr[j]][dias_chr[i]] = ''
 
         # El calendario tendrá índices kji (quiro turno dia)
         # Con valores (cirujano, turno, dia)
         ors_calendar = {}
-        for l in quirofanos_chr:
-            ors_calendar[l] = create_empty_nested_dics(turnos_chr)
+        for k in quirofanos_chr:
+            ors_calendar[k] = {}
+            for j in turnos_chr:
+                ors_calendar[k][j] = {}
+                for i in dias_chr:
+                    ors_calendar[k][j][i] = ''
 
         for i in dias:
             for j in turnos:
@@ -228,8 +233,6 @@ def main():
                         for m, var in dic.items():
                             if var == 1:
                                 ors_calendar[quirofanos_chr[k]][turnos_chr[j]][dias_chr[i]] = f"({cirujanos_chr[l]}, {pacientes_chr[m]}, {skill_pacientes[m]})"
-                            else:
-                                ors_calendar[quirofanos_chr[k]][turnos_chr[j]][dias_chr[i]] = ''
 
         # El calendario tendrá índices kji (quiro turno dia)
         # Con valores (con día, turno, cirujano, dolencia)
@@ -257,7 +260,10 @@ def main():
         for m_chr in pacientes_sin_operar.keys():
             df_aux = df[df["patient_id"] == m_chr]
             for clave in claves_secundarias:
-                pacientes_sin_operar[m_chr][clave] = list(df_aux[clave])[0]
+                if clave == "admision_date":
+                    pacientes_sin_operar[m_chr][clave] = list(df_aux[clave])[0].to_pydatetime().strftime("%m/%d/%Y")
+                else:
+                    pacientes_sin_operar[m_chr][clave] = list(df_aux[clave])[0]
 
         # Escribimos los datos de los pacientes
 

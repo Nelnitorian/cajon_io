@@ -113,7 +113,7 @@ def extract_list_value(dic):
     return dic
 
 def write_nested_dicts_to_excel(WB, name, sheet, dic, range_list, header):
-    if len(range_list)==1:
+    if len(range_list) == 1:
         range1, range2 = calculate_write_ranges_dic(dic, range_list[0])
     else:
         range1 = range_list[0]
@@ -122,6 +122,8 @@ def write_nested_dicts_to_excel(WB, name, sheet, dic, range_list, header):
 
     primary_keys = list(dic.keys())
     secondary_keys = list(dic[list(dic.keys())[0]].keys())
+
+    primary_keys.sort(key=natural_keys)
 
     # Write data
     for i in range(len(primary_keys)):
@@ -190,9 +192,9 @@ def calculate_write_ranges_from_dic_array(lst, start = 'D1'):
         if len(dic)>max_dic_size_in_row:
             max_dic_size_in_row = len(dic)
         if (i+1)%max_tables_in_row==0:
-            permanent_increment += max_dic_size_in_row+5
+            permanent_increment += max_dic_size_in_row+2
             max_dic_size_in_row = 0
-            new_start = extract_letters(start)+str(permanent_increment)
+            new_start = extract_letters(start)+str(permanent_increment+int(extract_numbers(start)))
         else:
             new_start = calculate_new_range_start(new_range)
     return ranges
@@ -260,3 +262,9 @@ def calculate_interval_list(lst):
     for item in lst:
         lst_aux.append(calculate_interval(item))
     return lst_aux
+
+def atoi(text):
+    return int(text) if text.isdigit() else text
+
+def natural_keys(text):
+    return [atoi(c) for c in re.split(r'(\d+)', text)]
