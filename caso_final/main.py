@@ -167,6 +167,87 @@ def main():
     if status == pywraplp.Solver.OPTIMAL:
         print('El problema tiene solucion.')
 
+        """
+        Representar:
+            · Horario de cada cirujano | done 
+            · Horario de cada quirófano | done
+            · Lista de pacientes operados (con día, turno, cirujano, dolencia) | done
+            · Lista de pacientes en cola (con toda la info que viene en los datos) | falta
+        """
+        x_sol = []
+        for i in dias:
+            x_sol.append([])
+            for j in turnos:
+                x_sol[i].append([])
+                for k in quirofanos:
+                    x_sol[i][j].append([])
+        for i in dias:
+            for j in turnos:
+                for k in quirofanos:
+                    cirujanos_disp = indexes[k]
+                    if cirujanos_disp:
+                        x_sol[i][j][k] = {}
+                        for l, pacientes_disp in cirujanos_disp.items():
+                            x_sol[i][j][k][l] = {}
+                            for m in pacientes_disp:
+                                x_sol[i][j][k][l][m] = x[i][j][k][l][m].solution_value()
+
+        # El calendario tendrá índices lji (ciru turno dia)
+        # Con valores (quirofano, paciente, dolencia)
+        surgeon_calendar = {}
+        for l in cirujanos_chr:
+            surgeon_calendar[l] = create_empty_nested_dics(turnos_chr)
+
+        for l in cirujanos:
+            for i in dias:
+                for j in turnos:
+                    for k in quirofanos:
+                        if l in x_sol[i][j][k].keys():
+                            dic = x_sol[i][j][k][l]
+                            for m, var in dic.items():
+                                if var == 1:
+                                    surgeon_calendar[l][j][i] = f"({quirofanos_chr[k]}, {pacientes_chr[m]}, {skill_pacientes[m]})"
+                                else:
+                                    surgeon_calendar[l][j][i] = ''
+
+        # El calendario tendrá índices kji (quiro turno dia)
+        # Con valores (cirujano, turno, dia)
+        ors_calendar = {}
+        for l in quirofanos_chr:
+            ors_calendar[l] = create_empty_nested_dics(turnos_chr)
+
+        for i in dias:
+            for j in turnos:
+                for k in quirofanos:
+                    for l, dic in x_sol[i][j][k].items():
+                        for m, var in dic.items():
+                            if var == 1:
+                                ors_calendar[l][j][i] = f"({cirujanos_chr[l]}, {pacientes_chr[m]}, {skill_pacientes[m]})"
+                            else:
+                                ors_calendar[l][j][i] = ''
+
+        # El calendario tendrá índices kji (quiro turno dia)
+        # Con valores (con día, turno, cirujano, dolencia)
+
+        patients_calendar = {}
+        for i in dias:
+            for j in turnos:
+                for k in quirofanos:
+                    for l, dic in x_sol[i][j][k].items():
+                        for m, var in dic.items():
+                            if var == 1:
+                                patients_calendar[pacientes_chr[m]] = {}
+                                patients_calendar[pacientes_chr[m]]['Dia'] = dias_chr[i]
+                                patients_calendar[pacientes_chr[m]]['Turno'] = turnos_chr[j]
+                                patients_calendar[pacientes_chr[m]]['Cirujano que opera'] = cirujanos_chr[l]
+                                patients_calendar[pacientes_chr[m]]['Dolencia a operar'] = skill_pacientes[m]
+
+        """
+        idea: set(pacientes_chr)-set(patients_calendar.keys()) <- pacientes aún por operar -> usar table_contents para reorganizar
+        la info y ponerla en un diccionario
+        """
+
+
         print(f"Valor de la función objetivo total: {FO.solution_value()}")
     else:
         print('No hay solución óptima. Error.')
