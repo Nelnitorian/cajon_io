@@ -8,7 +8,11 @@ import pandas as pd
 # Constants
 EXCEL_FILE_NAME = 'casofinal_excel.xlsx'
 DATA_SHEET_NAME = 'Datos'
-ANSWER_SHEET_NAME = 'Resultados'
+ANSWER_SHEET_BASE_NAME = 'Resultados'
+PATIENTS_ANSWER_SHEET = ANSWER_SHEET_BASE_NAME + " Pacientes"
+ORS_ANSWER_SHEET = ANSWER_SHEET_BASE_NAME + " Quirofanos"
+SURGEONS_ANSWER_SHEET = ANSWER_SHEET_BASE_NAME + " Cirujanos"
+
 
 PATIENTS_DATA_SEET_NAME = 'Patients'
 SURGEONS_DATA_SEET_NAME = 'Surgeons'
@@ -207,9 +211,9 @@ def main():
                             dic = x_sol[i][j][k][l]
                             for m, var in dic.items():
                                 if var == 1:
-                                    surgeon_calendar[l][j][i] = f"({quirofanos_chr[k]}, {pacientes_chr[m]}, {skill_pacientes[m]})"
+                                    surgeon_calendar[cirujanos_chr[l]][turnos_chr[j]][dias_chr[i]] = f"({quirofanos_chr[k]}, {pacientes_chr[m]}, {skill_pacientes[m]})"
                                 else:
-                                    surgeon_calendar[l][j][i] = ''
+                                    surgeon_calendar[cirujanos_chr[l]][turnos_chr[j]][dias_chr[i]] = ''
 
         # El calendario tendrá índices kji (quiro turno dia)
         # Con valores (cirujano, turno, dia)
@@ -223,9 +227,9 @@ def main():
                     for l, dic in x_sol[i][j][k].items():
                         for m, var in dic.items():
                             if var == 1:
-                                ors_calendar[l][j][i] = f"({cirujanos_chr[l]}, {pacientes_chr[m]}, {skill_pacientes[m]})"
+                                ors_calendar[quirofanos_chr[k]][turnos_chr[j]][dias_chr[i]] = f"({cirujanos_chr[l]}, {pacientes_chr[m]}, {skill_pacientes[m]})"
                             else:
-                                ors_calendar[l][j][i] = ''
+                                ors_calendar[quirofanos_chr[k]][turnos_chr[j]][dias_chr[i]] = ''
 
         # El calendario tendrá índices kji (quiro turno dia)
         # Con valores (con día, turno, cirujano, dolencia)
@@ -241,24 +245,49 @@ def main():
                                 patients_calendar[pacientes_chr[m]]['Dia'] = dias_chr[i]
                                 patients_calendar[pacientes_chr[m]]['Turno'] = turnos_chr[j]
                                 patients_calendar[pacientes_chr[m]]['Cirujano que opera'] = cirujanos_chr[l]
+                                patients_calendar[pacientes_chr[m]]['Quirofano'] = quirofanos_chr[k]
                                 patients_calendar[pacientes_chr[m]]['Dolencia a operar'] = skill_pacientes[m]
 
-        pacientes_sin_operar = create_empty_nested_dics(list(set(pacientes_chr) - set(patients_calendar.keys())))
+        pacientes_sin_operar_keys = list(set(pacientes_chr) - set(patients_calendar.keys()))
+        pacientes_sin_operar_keys.sort()
+        pacientes_sin_operar = create_empty_nested_dics(pacientes_sin_operar_keys)
         df = table_contents[PATIENTS_DATA_SEET_NAME]
-        claves_secundarias = df.keys()
+        claves_secundarias = list(df.keys())
+        claves_secundarias.remove('patient_id')
         for m_chr in pacientes_sin_operar.keys():
-            # filtrar df[df["patient_id"]==m_chr]
             df_aux = df[df["patient_id"] == m_chr]
             for clave in claves_secundarias:
-                # comprobar que no sale una lista. en caso de que salga hay que extraer el único valor que hay
-                pacientes_sin_operar[m_chr][clave] = df_aux[clave]
+                pacientes_sin_operar[m_chr][clave] = list(df_aux[clave])[0]
 
-        # WRITE TO EXCEL
+        # Escribimos los datos de los pacientes
 
-        """
-        idea: set(pacientes_chr)-set(patients_calendar.keys()) <- pacientes aún por operar -> usar table_contents para reorganizar
-        la info y ponerla en un diccionario
-        """
+        patient_answer_excel_sheet = excel_doc[PATIENTS_ANSWER_SHEET]
+        patient_dics_to_save_array = [pacientes_sin_operar, patients_calendar]
+
+        patient_ranges = calculate_write_ranges_from_dic_array(patient_dics_to_save_array, start='C3')
+        for j in range(len(patient_dics_to_save_array)):
+            write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, patient_answer_excel_sheet, patient_dics_to_save_array[j], patient_ranges[j], f'S{j + 1}')
+
+        # Escribimos los datos de los cirujanos
+        # surgeon_dics_to_save_array = [surgeon_calendar]
+        surgeon_answer_excel_sheet = excel_doc[SURGEONS_ANSWER_SHEET]
+        surgeon_dics_array = list(surgeon_calendar.values())
+        surgeon_dics_keys = list(surgeon_calendar.keys())
+        surgeon_ranges = calculate_write_ranges_from_dic_array(surgeon_dics_array, start='C3')
+        for i in range(len(surgeon_dics_array)):
+            write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, surgeon_answer_excel_sheet, surgeon_dics_array[i], surgeon_ranges[i], f'S_{surgeon_dics_keys[i]}')
+
+        # Escribimos los datos de las salas
+        # ors_dics_to_save_array = [ors_calendar]
+        ors_answer_excel_sheet = excel_doc[ORS_ANSWER_SHEET]
+        ors_dics_array = list(ors_calendar.values())
+        ors_dics_keys = list(ors_calendar.keys())
+        ors_ranges = calculate_write_ranges_from_dic_array(ors_dics_array, start='C3')
+        for i in range(len(ors_dics_array)):
+            write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, ors_answer_excel_sheet, ors_dics_array[i], ors_ranges[i], f'S_{ors_dics_keys[i]}')
+
+
+
 
 
         print(f"Valor de la función objetivo total: {FO.solution_value()}")
