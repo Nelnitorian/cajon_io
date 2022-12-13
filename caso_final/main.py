@@ -3,6 +3,7 @@
 import openpyxl as openpyxl
 from ortools.linear_solver import pywraplp
 from utils import *
+import pandas as pd
 
 # Constants
 EXCEL_FILE_NAME = 'casofinal_excel.xlsx'
@@ -241,6 +242,18 @@ def main():
                                 patients_calendar[pacientes_chr[m]]['Turno'] = turnos_chr[j]
                                 patients_calendar[pacientes_chr[m]]['Cirujano que opera'] = cirujanos_chr[l]
                                 patients_calendar[pacientes_chr[m]]['Dolencia a operar'] = skill_pacientes[m]
+
+        pacientes_sin_operar = create_empty_nested_dics(list(set(pacientes_chr) - set(patients_calendar.keys())))
+        df = table_contents[PATIENTS_DATA_SEET_NAME]
+        claves_secundarias = df.keys()
+        for m_chr in pacientes_sin_operar.keys():
+            # filtrar df[df["patient_id"]==m_chr]
+            df_aux = df[df["patient_id"] == m_chr]
+            for clave in claves_secundarias:
+                # comprobar que no sale una lista. en caso de que salga hay que extraer el único valor que hay
+                pacientes_sin_operar[m_chr][clave] = df_aux[clave]
+
+        # WRITE TO EXCEL
 
         """
         idea: set(pacientes_chr)-set(patients_calendar.keys()) <- pacientes aún por operar -> usar table_contents para reorganizar
