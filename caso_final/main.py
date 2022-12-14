@@ -261,7 +261,7 @@ def main():
             df_aux = df[df["patient_id"] == m_chr]
             for clave in claves_secundarias:
                 if clave == "admision_date":
-                    pacientes_sin_operar[m_chr][clave] = list(df_aux[clave])[0].to_pydatetime().strftime("%m/%d/%Y")
+                    pacientes_sin_operar[m_chr][clave] = list(df_aux[clave])[0].to_pydatetime().strftime("%d/%m/%Y")
                 else:
                     pacientes_sin_operar[m_chr][clave] = list(df_aux[clave])[0]
 
