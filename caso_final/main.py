@@ -21,7 +21,7 @@ DAYS_DATA_SEET_NAME = 'Days'
 
 OPERATION_DURATION = 2 # hours
 
-def main():
+def main(coef_z, coef_g):
     """
 
 
@@ -63,9 +63,6 @@ def main():
 
     g = list(table_contents[PATIENTS_DATA_SEET_NAME]["imp"])
     z = calculate_list_date_difference(list(table_contents[PATIENTS_DATA_SEET_NAME]["admision_date"]))
-    Kid = 'OR{i}'
-    Lid = 'S{i}'
-    Pid = '#p#{i}'
 
     # Definición de variables de compatibilidad (paso necesario para la optimización)
     indexes = create_list_empty_nested_dics(len(quirofanos))
@@ -108,7 +105,6 @@ def main():
                 solver.Add(solver.Sum([var for l, dic in x[i][j][k].items() for m, var in dic.items()]) <= 1)
 
     # R2 y R3
-    # TODO compactar
     for l in cirujanos:
         accumulated_hours = []
         for i in dias:
@@ -122,7 +118,6 @@ def main():
         solver.Add(solver.Sum(accumulated_hours) >= 10)
 
     # R4
-    # TODO compactar
     for m in pacientes:
         accumulated_hours = []
         for i in dias:
@@ -134,7 +129,6 @@ def main():
         solver.Add(solver.Sum(accumulated_hours) <= 1)
 
     # R5
-    # TODO compactar
     days_reduced = []
     for m in pacientes:
         patient_operation = []
@@ -148,12 +142,14 @@ def main():
 
     solver.Add(solver.Sum(days_reduced) >= 0.45*sum(z[m] for m in pacientes))
 
+    # solver.Add(solver.Sum(z[m]*x[i][j][k][l][m] for (i, j, k, l, m) in conjunto) >= 0.45*sum(z[m] for m in pacientes))
+
+
     # R6
     # al resolver el problema equivalente con menos coste computacional,
     # no hace falta esta restricción
 
     # FO
-    # TODO compactar
     punctuation = []
     for m in pacientes:
         patient_operation = []
@@ -163,7 +159,7 @@ def main():
                     for l, dic in x[i][j][k].items():
                         if m in dic.keys():
                             patient_operation.append(dic[m])
-        punctuation.append(z[m] * g[m] * (1-solver.Sum(patient_operation)))
+        punctuation.append(pow(z[m], coef_z) * pow(g[m], coef_g) * (1-solver.Sum(patient_operation)))
     FO = solver.Sum(punctuation)
     solver.Minimize(FO)
     status = solver.Solve()
@@ -171,13 +167,6 @@ def main():
     if status == pywraplp.Solver.OPTIMAL:
         print('El problema tiene solucion.')
 
-        """
-        Representar:
-            · Horario de cada cirujano | done 
-            · Horario de cada quirófano | done
-            · Lista de pacientes operados (con día, turno, cirujano, dolencia) | done
-            · Lista de pacientes en cola (con toda la info que viene en los datos) | done
-        """
         x_sol = []
         for i in dias:
             x_sol.append([])
@@ -238,6 +227,7 @@ def main():
         # Con valores (con día, turno, cirujano, dolencia)
 
         patients_calendar = {}
+        depuracion = []
         for i in dias:
             for j in turnos:
                 for k in quirofanos:
@@ -250,6 +240,8 @@ def main():
                                 patients_calendar[pacientes_chr[m]]['Cirujano que opera'] = cirujanos_chr[l]
                                 patients_calendar[pacientes_chr[m]]['Quirofano'] = quirofanos_chr[k]
                                 patients_calendar[pacientes_chr[m]]['Dolencia a operar'] = skill_pacientes[m]
+                                patients_calendar[pacientes_chr[m]]['Gravedad'] = g[m]
+                                depuracion.append(m)
 
         pacientes_sin_operar_keys = list(set(pacientes_chr) - set(patients_calendar.keys()))
         pacientes_sin_operar_keys.sort()
@@ -292,15 +284,34 @@ def main():
         for i in range(len(ors_dics_array)):
             write_nested_dicts_to_excel(excel_doc, EXCEL_FILE_NAME, ors_answer_excel_sheet, ors_dics_array[i], ors_ranges[i], f'S_{ors_dics_keys[i]}')
 
-
-
-
-
         print(f"Valor de la función objetivo total: {FO.solution_value()}")
+        cantidad_pacientes_operados = len(list(set(patients_calendar.keys())))
+        print(f"Cantidad de pacientes operados: {cantidad_pacientes_operados}")
+        tiempo_antes = sum(z)
+        paciente_operado = {}
+        for m in pacientes:
+            paciente_operado[m] = 0
+        for i in dias:
+            for j in turnos:
+                for k in quirofanos:
+                    for l, dic in x_sol[i][j][k].items():
+                        for m, var in dic.items():
+                            if var == 1:
+                                paciente_operado[m] = 1
+        tiempo_salvado = sum([z[m]*paciente_operado[m] for m in pacientes])
+        tiempo_ahora = tiempo_antes-tiempo_salvado
+        print(f"Antes había {tiempo_antes} meses acumulados. Ahora hay {tiempo_ahora}. Se ha salvado {tiempo_salvado}. Ha habido una mejora del {((tiempo_salvado)/tiempo_antes)*100}%")
+
+        cantidad_pacientes_esperan_mucho_despues = len([z[m] for m in pacientes if z[m] > 3])
+        print(f"La cantidad de pacientes que esperaban más de 3 meses antes del calendario: {cantidad_pacientes_esperan_mucho_despues}")
+
+        cantidad_pacientes_esperan_mucho_antes = len([z[i] for i in range(len(pacientes_sin_operar_keys)) if z[i] > 3])
+        print(f"La cantidad de pacientes que esperan más de 3 meses después del calendario: {cantidad_pacientes_esperan_mucho_antes}")
+
     else:
         print('No hay solución óptima. Error.')
 
     return
 
 if __name__=='__main__':
-    main()
+    main(coef_z=0.8, coef_g=1.5)

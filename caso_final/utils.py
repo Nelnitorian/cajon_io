@@ -100,7 +100,7 @@ def calculate_list_date_difference(unparsed_date_lst):
     now = datetime.now()
     for then in unparsed_date_lst:
         delta = now-parse_date(then)
-        aux_lst.append(delta.days)
+        aux_lst.append(delta.days/30)
     return aux_lst
 
 def parse_date(date):
