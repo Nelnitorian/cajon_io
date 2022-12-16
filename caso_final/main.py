@@ -43,17 +43,17 @@ def main(coef_z, coef_g):
 
     # Definición de indices
 
+    dias_chr = list(table_contents[DAYS_DATA_SEET_NAME]["Days"])
+    turnos_chr = list(table_contents[TIME_SLOTS_DATA_SEET_NAME]["Time_Slots"])
     quirofanos_chr = list(table_contents[ORS_DATA_SEET_NAME]["ORs"])
     cirujanos_chr = list(table_contents[SURGEONS_DATA_SEET_NAME]["Sid"])
     pacientes_chr = list(table_contents[PATIENTS_DATA_SEET_NAME]["patient_id"])
-    dias_chr = list(table_contents[DAYS_DATA_SEET_NAME]["Days"])
-    turnos_chr = list(table_contents[TIME_SLOTS_DATA_SEET_NAME]["Time_Slots"])
 
+    dias = list(range(len(dias_chr)))
+    turnos = list(range(len(turnos_chr)))
     quirofanos = list(range(len(quirofanos_chr)))
     cirujanos = list(range(len(cirujanos_chr)))
     pacientes = list(range(len(pacientes_chr)))
-    dias = list(range(len(dias_chr)))
-    turnos = list(range(len(turnos_chr)))
 
     # Definición de constantes
 
@@ -159,9 +159,9 @@ def main(coef_z, coef_g):
                     for l, dic in x[i][j][k].items():
                         if m in dic.keys():
                             patient_operation.append(dic[m])
-        punctuation.append(pow(z[m], coef_z) * pow(g[m], coef_g) * (1-solver.Sum(patient_operation)))
+        punctuation.append(pow(z[m], coef_z) * pow(g[m], coef_g) * solver.Sum(patient_operation))
     FO = solver.Sum(punctuation)
-    solver.Minimize(FO)
+    solver.Maximize(FO)
     status = solver.Solve()
 
     if status == pywraplp.Solver.OPTIMAL:
