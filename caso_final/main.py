@@ -99,12 +99,15 @@ def main(coef_z, coef_g):
                             x[i][j][k][l][m] = solver.IntVar(0, 1, f"x_{i}_{j}_{k}_{l}_{m}")
 
     # R1
+    # En un quirófano solo puede haber un paciente y un cirujano.
     for i in dias:
         for j in turnos:
             for k in quirofanos:
                 solver.Add(solver.Sum([var for l, dic in x[i][j][k].items() for m, var in dic.items()]) <= 1)
 
     # R2 y R3
+    # R2: Un cirujano puede trabajar 18h como máximo a la semana.
+    # R3: Un cirujano puede trabajar 10h como mínimo a la semana.
     for l in cirujanos:
         accumulated_hours = []
         for i in dias:
@@ -118,17 +121,19 @@ def main(coef_z, coef_g):
         solver.Add(solver.Sum(accumulated_hours) >= 10)
 
     # R4
+    # R4: Un paciente solo puede operarse una vez como máximo.
     for m in pacientes:
-        accumulated_hours = []
+        accumulated_operations = []
         for i in dias:
             for j in turnos:
                 for k in quirofanos:
                     for l, dic in x[i][j][k].items():
                         if m in dic.keys():
-                            accumulated_hours.append(dic[m])
-        solver.Add(solver.Sum(accumulated_hours) <= 1)
+                            accumulated_operations.append(dic[m])
+        solver.Add(solver.Sum(accumulated_operations) <= 1)
 
     # R5
+    # R5: La cantidad de tempo ahorrado tiene que ser mayor que el 0.45 del tiempo que hubiese.
     days_reduced = []
     for m in pacientes:
         patient_operation = []
@@ -146,9 +151,19 @@ def main(coef_z, coef_g):
 
 
     # R6
-    # al resolver el problema equivalente con menos coste computacional,
-    # no hace falta esta restricción
+    # Al resolver el problema equivalente con menos coste computacional no hace falta esta restricción
 
+    # R7
+    # R7: Un cirujano solo puede estar en un quirófano a la vez
+    for l in cirujanos:
+        for i in dias:
+            for j in turnos:
+                accumulated_operations = []
+                for k in quirofanos:
+                    if l in x[i][j][k].keys():
+                        for m, dic in x[i][j][k][l].items():
+                            accumulated_operations.append(dic)
+                solver.Add(solver.Sum(accumulated_operations) <= 1)
     # FO
     punctuation = []
     for m in pacientes:
@@ -204,6 +219,7 @@ def main(coef_z, coef_g):
                             for m, var in dic.items():
                                 if var == 1:
                                     surgeon_calendar[cirujanos_chr[l]][turnos_chr[j]][dias_chr[i]] = f"({quirofanos_chr[k]}, {pacientes_chr[m]}, {skill_pacientes[m]})"
+
 
         # El calendario tendrá índices kji (quiro turno dia)
         # Con valores (cirujano, turno, dia)
